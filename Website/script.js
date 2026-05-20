@@ -6,7 +6,115 @@ if (!mapboxgl.accessToken) {
 
 const map = new mapboxgl.Map({
   container: 'map', // container ID
-  style: 'mapbox://styles/mapbox/navigation-night-v1', // style URL
+  style: {
+    version: 8,
+    sources: {
+      'mapbox-streets': {
+        type: 'vector',
+        url: 'mapbox://mapbox.mapbox-streets-v8'
+      }
+    },
+    glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
+    layers: [
+      {
+        id: 'background',
+        type: 'background',
+        paint: {
+          'background-color': '#080617'
+        }
+      },
+      {
+        id: 'land',
+        type: 'fill',
+        source: 'mapbox-streets',
+        'source-layer': 'landuse',
+        paint: {
+          'fill-color': '#121126',
+          'fill-opacity': 0.9
+        }
+      },
+      {
+        id: 'water',
+        type: 'fill',
+        source: 'mapbox-streets',
+        'source-layer': 'water',
+        paint: {
+          'fill-color': '#050b1f'
+        }
+      },
+      {
+        id: 'roads-minor',
+        type: 'line',
+        source: 'mapbox-streets',
+        'source-layer': 'road',
+        filter: ['match', ['get', 'class'], ['street', 'street_limited', 'service', 'track'], true, false],
+        paint: {
+          'line-color': '#3b255f',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 16, 2],
+          'line-opacity': 0.8
+        }
+      },
+      {
+        id: 'roads-major-glow',
+        type: 'line',
+        source: 'mapbox-streets',
+        'source-layer': 'road',
+        filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary'], true, false],
+        paint: {
+          'line-color': '#ff2fb3',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.5, 16, 8],
+          'line-blur': 3,
+          'line-opacity': 0.45
+        }
+      },
+      {
+        id: 'roads-major',
+        type: 'line',
+        source: 'mapbox-streets',
+        'source-layer': 'road',
+        filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary'], true, false],
+        paint: {
+          'line-color': '#ff7adf',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 16, 3],
+          'line-opacity': 0.95
+        }
+      },
+      {
+        id: 'road-labels',
+        type: 'symbol',
+        source: 'mapbox-streets',
+        'source-layer': 'road',
+        minzoom: 12,
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Regular'],
+          'text-size': 11
+        },
+        paint: {
+          'text-color': '#70fff1',
+          'text-halo-color': '#080617',
+          'text-halo-width': 1.5
+        }
+      },
+      {
+        id: 'place-labels',
+        type: 'symbol',
+        source: 'mapbox-streets',
+        'source-layer': 'place_label',
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Open Sans Semibold'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 4, 11, 12, 16]
+        },
+        paint: {
+          'text-color': '#ffe86b',
+          'text-halo-color': '#080617',
+          'text-halo-width': 2
+        }
+      }
+    ]
+  },
   center: [115.816, -31.980], // starting position [lng, lat]
   zoom: 13 // starting zoom
 });
