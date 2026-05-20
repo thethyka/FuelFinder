@@ -5,7 +5,6 @@ body {
   margin: 0;
   background-color: #111;
   position: relative;
-  z-index: -2;
   overflow: hidden;
 }
 
@@ -15,7 +14,7 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: -1;
+  z-index: 0;
   cursor: url('map-marker-radius.png'), auto !important;
 }
 
@@ -32,6 +31,7 @@ body {
   top: 50px;
   left: 50px;
   margin: 0;
+  z-index: 2;
 }
 
 @keyframes logo-color {
@@ -49,6 +49,7 @@ body {
   top: 150px;
   left: 50px;
   font-family: 'Magz', sans-serif;
+  z-index: 2;
 }
 
 .inputs {
@@ -57,6 +58,7 @@ body {
   left: 50px;
   padding: 0;
   margin: 0;
+  z-index: 2;
   
 }
 
@@ -79,6 +81,7 @@ body {
   position: absolute;
   bottom: 0;
   left: 100px;
+  z-index: 2;
 }
 
 #btn:hover {
@@ -95,6 +98,8 @@ body {
   animation-duration: 6s;
   animation-iteration-count: infinite;
   filter: drop-shadow(0 0 8px #88eeff);
+  z-index: 3;
+  pointer-events: none;
 }
 
 .car-body {
