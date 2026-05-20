@@ -74,7 +74,7 @@ body {
 
 .calculate-panel {
   position: fixed;
-  top: 212px;
+  top: 180px;
   right: 10px;
   width: 300px;
   display: flex;
