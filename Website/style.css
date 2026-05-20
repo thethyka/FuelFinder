@@ -72,27 +72,38 @@ body {
 .fuel-discounts: {
 }
 
+.calculate-panel {
+  position: fixed;
+  top: 212px;
+  right: 10px;
+  width: 300px;
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
 #btn {
   font-family: 'Magz', sans-serif;
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   color: #88eeff;
-  background-color: rgba(8, 6, 23, 0.86);
-  border: 2px solid #88eeff;
-  border-radius: 0.35rem;
-  box-shadow: 0 0 14px rgba(136, 238, 255, 0.45);
-  position: fixed;
-  top: 245px;
-  right: 10px;
-  min-width: 12rem;
-  min-height: 2.75rem;
-  padding: 0.35rem 1rem;
-  z-index: 2;
+  background: linear-gradient(135deg, rgba(8, 6, 23, 0.94), rgba(35, 22, 67, 0.92));
+  border: 1px solid rgba(136, 238, 255, 0.9);
+  border-radius: 999px;
+  box-shadow: 0 0 18px rgba(136, 238, 255, 0.32), inset 0 0 10px rgba(245, 66, 218, 0.18);
+  min-width: 11rem;
+  min-height: 2.6rem;
+  padding: 0.45rem 1.25rem;
   cursor: pointer;
+  pointer-events: auto;
+  transition: color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 #btn:hover {
   color: #f542da;
   border-color: #f542da;
+  box-shadow: 0 0 20px rgba(245, 66, 218, 0.4), inset 0 0 12px rgba(136, 238, 255, 0.16);
+  transform: translateY(-1px);
 }
 
 #btn:disabled {
