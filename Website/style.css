@@ -74,18 +74,31 @@ body {
 
 #btn {
   font-family: 'Magz', sans-serif;
-  font-size: 2rem;
+  font-size: 1.35rem;
   color: #88eeff;
-  background-color: transparent;
-  border-width: 0;
+  background-color: rgba(8, 6, 23, 0.86);
+  border: 2px solid #88eeff;
+  border-radius: 0.35rem;
+  box-shadow: 0 0 14px rgba(136, 238, 255, 0.45);
   position: absolute;
-  bottom: 0;
-  left: 100px;
+  top: 190px;
+  right: 10px;
+  min-width: 12rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 1rem;
   z-index: 2;
+  cursor: pointer;
 }
 
 #btn:hover {
-  color:aqua;
+  color: #f542da;
+  border-color: #f542da;
+}
+
+#btn:disabled {
+  color: rgba(136, 238, 255, 0.55);
+  border-color: rgba(136, 238, 255, 0.45);
+  cursor: wait;
 }
 
 #car {

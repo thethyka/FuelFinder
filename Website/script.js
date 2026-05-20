@@ -140,41 +140,77 @@ const direction = new MapboxDirections({
   profile: 'mapbox/driving',
 });
 
+const calculateButton = document.getElementById('btn');
+let routePoints = [];
+
 direction.on('route', (event) => {
-  var pointsArr = []
-  allSteps = event.route[0].legs[0].steps
-  stepsLen = event.route[0].legs[0].steps.length
+  const pointsArr = [];
+  const allSteps = event.route[0].legs[0].steps;
+  const stepsLen = event.route[0].legs[0].steps.length;
 
   for (let i = 0; i < stepsLen; i++) {
-    intersectionLen = allSteps[i].intersections.length
-    intersections = allSteps[i].intersections
+    const intersectionLen = allSteps[i].intersections.length;
+    const intersections = allSteps[i].intersections;
     for (let j = 0; j < intersectionLen; j++) {
-      pointsArr.push([intersections[j].location[1], intersections[j].location[0]])
+      pointsArr.push([intersections[j].location[1], intersections[j].location[0]]);
     }
   }
-  // Need to send pointsArr to backend
-  console.log(pointsArr)
-  var xhr = new XMLHttpRequest();
+
+  routePoints = pointsArr;
+  calculateButton.textContent = 'Calculate';
+  calculateButton.disabled = false;
+});
+
+calculateButton.addEventListener('click', () => {
+  if (!routePoints.length) {
+    calculateButton.textContent = 'Pick route first';
+    setTimeout(() => {
+      calculateButton.textContent = 'Calculate';
+    }, 1400);
+    return;
+  }
+
+  calculateButton.textContent = 'Calculating...';
+  calculateButton.disabled = true;
+
+  const resetCalculateButton = () => {
+    calculateButton.textContent = 'Calculate';
+    calculateButton.disabled = false;
+  };
+
+  const xhr = new XMLHttpRequest();
   xhr.open("POST", "/servo", true);
   xhr.setRequestHeader('Content-Type', 'application/json');
   xhr.send(JSON.stringify({
-    path: pointsArr,
+    path: routePoints,
     efficiency: 5,
     capacity: 50,
     current_tank: 2,
     RAC: 0,
     Woolies: 0
   }));
+
   xhr.onload = function () {
-    console.log("HELLO")
-    console.log(this.responseText);
-    var data = JSON.parse(this.responseText);
-    console.log(data);
+    try {
+      console.log("HELLO")
+      console.log(this.responseText);
+      var data = JSON.parse(this.responseText);
+      console.log(data);
+    } catch (error) {
+      console.error('Could not process servo response', error);
+    } finally {
+      resetCalculateButton();
+    }
+  }
+
+  xhr.onerror = function () {
+    resetCalculateButton();
   }
 });
 
 map.addControl(
-  direction
+  direction,
+  'top-right'
 );
 
 /* direction.addWaypoint (
