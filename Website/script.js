@@ -6,7 +6,7 @@ if (!mapboxgl.accessToken) {
 
 const map = new mapboxgl.Map({
   container: 'map', // container ID
-  style: 'mapbox://styles/mapbox/streets-v12', // style URL
+  style: 'mapbox://styles/mapbox/navigation-night-v1', // style URL
   center: [115.816, -31.980], // starting position [lng, lat]
   zoom: 13 // starting zoom
 });
