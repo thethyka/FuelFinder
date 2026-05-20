@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure Mapbox token
         run: |
+          test -n "$MAPBOX_TOKEN"
           printf "window.MAPBOX_ACCESS_TOKEN = '%s';\n" "${MAPBOX_TOKEN}" > Website/mapbox-config.js
         env:
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
