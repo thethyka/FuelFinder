@@ -80,8 +80,8 @@ body {
   border: 2px solid #88eeff;
   border-radius: 0.35rem;
   box-shadow: 0 0 14px rgba(136, 238, 255, 0.45);
-  position: absolute;
-  top: 190px;
+  position: fixed;
+  top: 245px;
   right: 10px;
   min-width: 12rem;
   min-height: 2.75rem;
