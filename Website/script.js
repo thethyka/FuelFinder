@@ -49,9 +49,9 @@ const map = new mapboxgl.Map({
         'source-layer': 'road',
         filter: ['match', ['get', 'class'], ['street', 'street_limited', 'service', 'track'], true, false],
         paint: {
-          'line-color': '#3b255f',
+          'line-color': '#26365c',
           'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 16, 2],
-          'line-opacity': 0.8
+          'line-opacity': 0.55
         }
       },
       {
@@ -61,10 +61,10 @@ const map = new mapboxgl.Map({
         'source-layer': 'road',
         filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary'], true, false],
         paint: {
-          'line-color': '#ff2fb3',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.5, 16, 8],
-          'line-blur': 3,
-          'line-opacity': 0.45
+          'line-color': '#7a5cff',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1, 16, 5],
+          'line-blur': 2.5,
+          'line-opacity': 0.28
         }
       },
       {
@@ -74,9 +74,9 @@ const map = new mapboxgl.Map({
         'source-layer': 'road',
         filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary'], true, false],
         paint: {
-          'line-color': '#ff7adf',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 16, 3],
-          'line-opacity': 0.95
+          'line-color': '#b08cff',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.7, 16, 2.4],
+          'line-opacity': 0.78
         }
       },
       {
@@ -92,7 +92,7 @@ const map = new mapboxgl.Map({
           'text-size': 11
         },
         paint: {
-          'text-color': '#70fff1',
+          'text-color': '#9be7dc',
           'text-halo-color': '#080617',
           'text-halo-width': 1.5
         }
@@ -108,7 +108,7 @@ const map = new mapboxgl.Map({
           'text-size': ['interpolate', ['linear'], ['zoom'], 4, 11, 12, 16]
         },
         paint: {
-          'text-color': '#ffe86b',
+          'text-color': '#d8c982',
           'text-halo-color': '#080617',
           'text-halo-width': 2
         }
