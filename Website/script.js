@@ -1,7 +1,12 @@
-mapboxgl.accessToken = 'pk.eyJ1Ijoic21vaGFuMjAwMSIsImEiOiJjbDVkaDZiNmwwNmwwM2ZvMXYwbDVieG9uIn0.hpEwFPqANepe3lUep9EU1Q';
+mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+
+if (!mapboxgl.accessToken) {
+  throw new Error('Missing Mapbox token. Set MAPBOX_TOKEN in GitHub Actions secrets.');
+}
+
 const map = new mapboxgl.Map({
   container: 'map', // container ID
-  style: 'mapbox://styles/smohan2001/cl5dh88vv000o15pi194xhvy2', // style URL
+  style: 'mapbox://styles/mapbox/streets-v12', // style URL
   center: [115.816, -31.980], // starting position [lng, lat]
   zoom: 13 // starting zoom
 });

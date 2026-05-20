@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Configure Mapbox token
+        run: |
+          printf "window.MAPBOX_ACCESS_TOKEN = '%s';\n" "${MAPBOX_TOKEN}" > Website/mapbox-config.js
+        env:
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: Website
