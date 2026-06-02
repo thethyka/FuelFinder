@@ -139,50 +139,115 @@ document.getElementById('help-modal').style.display = 'flex';
 const calculateButton = document.getElementById('btn');
 const resetButton     = document.getElementById('btn2');
 
-let baseRoutePoints = [];   // original A→B points, never includes the station waypoint
-let stationActive   = false;
-let pendingWaypoint = null; // [lon, lat] queued to add once removeWaypoint settles
+// ---------------------------------------------------------------------------
+// Route + fuel-stop state. See ROUTING_SPEC.md §7 for the rules this enforces.
+//
+//  - userRoutePoints : the pure origin→destination geometry. Updated ONLY from
+//                      route events fired while no fuel waypoint of ours exists.
+//                      This is the only thing ever sent to the API.
+//  - hasFuelStop     : whether our single fuel waypoint (index 0) is present.
+//  - pendingFuelStop : [lon, lat] queued to add once a removeWaypoint settles,
+//                      so the two async route requests never race.
+//  - stationMarker   : the pin for the chosen station.
+// ---------------------------------------------------------------------------
+let userRoutePoints = [];
+let hasFuelStop     = false;
+let pendingFuelStop = null;
 let stationMarker   = null;
 
-direction.on('route', (event) => {
-  // Collect points across all legs
-  const pointsArr = [];
+function extractPoints(event) {
+  const pts = [];
   for (const leg of event.route[0].legs) {
     for (const step of leg.steps) {
       for (const ix of step.intersections) {
-        pointsArr.push([ix.location[1], ix.location[0]]);
+        pts.push([ix.location[1], ix.location[0]]); // [lat, lon]
       }
     }
   }
+  return pts;
+}
 
-  if (pendingWaypoint) {
-    // removeWaypoint just settled — route is back to A→B.
-    // Save it, then add the new station waypoint.
-    baseRoutePoints = pointsArr;
-    const [lon, lat] = pendingWaypoint;
-    pendingWaypoint  = null;
-    stationActive    = true;
-    direction.addWaypoint(1, [lon, lat]);
+function clearMarker() {
+  if (stationMarker) { stationMarker.remove(); stationMarker = null; }
+}
+
+// Remove our fuel stop + marker and return to the plain A→B route.
+function clearFuelStop() {
+  pendingFuelStop = null;
+  clearMarker();
+  if (hasFuelStop) {
+    hasFuelStop = false;
+    direction.removeWaypoint(0); // route event recaptures the base route
+  }
+}
+
+direction.on('route', (event) => {
+  // A removeWaypoint just settled and a replacement stop is queued — add it now,
+  // after the route is back to A→B, so requests are strictly sequenced.
+  if (pendingFuelStop) {
+    const [lon, lat] = pendingFuelStop;
+    pendingFuelStop  = null;
+    hasFuelStop      = true;
+    direction.addWaypoint(0, [lon, lat]);
     return; // button stays disabled until addWaypoint settles (next route event)
   }
 
-  if (!stationActive) {
-    // Pure user-drawn A→B route — save as base
-    baseRoutePoints = pointsArr;
+  // Only a pure origin→destination route updates the base geometry.
+  if (!hasFuelStop) {
+    userRoutePoints = extractPoints(event);
   }
-  // Re-enable after every settled route (initial draw, or after addWaypoint finishes)
+
   calculateButton.textContent = 'Calculate';
   calculateButton.disabled    = false;
 });
 
+// If the user edits either endpoint, any existing stop is stale — drop it.
+// The next route they draw is captured fresh, so old locations never linger.
+//
+// BUT the Directions plugin re-fires 'origin'/'destination' as a side effect of
+// addWaypoint/removeWaypoint, with the endpoints unchanged. Acting on those would
+// instantly tear down the stop we just placed (the pin "flashes" and vanishes).
+// So we only invalidate when an endpoint's coordinates have actually changed.
+let lastOriginKey = null;
+let lastDestKey   = null;
+
+function coordKey(feature) {
+  return feature && feature.geometry ? feature.geometry.coordinates.join(',') : null;
+}
+
+function onEndpointChange() {
+  const oKey = coordKey(direction.getOrigin());
+  const dKey = coordKey(direction.getDestination());
+  if (oKey === lastOriginKey && dKey === lastDestKey) return; // spurious re-fire
+  lastOriginKey = oKey;
+  lastDestKey   = dKey;
+  clearFuelStop();
+}
+
+direction.on('origin',      onEndpointChange);
+direction.on('destination', onEndpointChange);
+
+// Place (or replace) the single fuel waypoint at index 0 without racing.
+function setFuelStop(lon, lat) {
+  if (hasFuelStop) {
+    // Remove the old one first; the queued add fires on the next route event.
+    hasFuelStop     = false;
+    pendingFuelStop = [lon, lat];
+    direction.removeWaypoint(0);
+  } else {
+    hasFuelStop = true;
+    direction.addWaypoint(0, [lon, lat]);
+  }
+}
+
 calculateButton.addEventListener('click', () => {
-  if (!baseRoutePoints.length) {
+  if (!userRoutePoints.length) {
     flash(calculateButton, 'Draw a route first');
     return;
   }
 
   const efficiency  = parseFloat(document.getElementById('fuel-efficiency').value);
-  const capacity    = parseFloat(document.getElementById('tank-after-fill').value);
+  const capacity    = parseFloat(document.getElementById('tank-capacity').value);
   const currentTank = parseFloat(document.getElementById('current-tank').value);
 
   if (isNaN(efficiency) || efficiency <= 0) {
@@ -191,8 +256,8 @@ calculateButton.addEventListener('click', () => {
     return;
   }
   if (isNaN(capacity) || capacity <= 0) {
-    flash(calculateButton, 'Enter tank size');
-    document.getElementById('tank-after-fill').focus();
+    flash(calculateButton, 'Enter tank capacity');
+    document.getElementById('tank-capacity').focus();
     return;
   }
   if (isNaN(currentTank) || currentTank < 0) {
@@ -211,8 +276,8 @@ calculateButton.addEventListener('click', () => {
   xhr.open('POST', '/api/servo', true);
   xhr.setRequestHeader('Content-Type', 'application/json');
   xhr.send(JSON.stringify({
-    path:         baseRoutePoints,  // always send the original A→B route
-    efficiency:   efficiency,
+    path:         userRoutePoints,  // always the original A→B route
+    efficiency:   efficiency,       // L/100km — backend converts to km/L
     capacity:     capacity,
     current_tank: currentTank,
     RAC:          rac,
@@ -220,40 +285,50 @@ calculateButton.addEventListener('click', () => {
   }));
 
   xhr.onload = function () {
+    let data;
     try {
-      const data = JSON.parse(this.responseText);
-      if (this.status === 200 && Array.isArray(data)) {
-        const lat         = data[3][0];
-        const lon         = data[3][1];
-        const costDollars = (data[2] / 100).toFixed(2);
+      data = JSON.parse(this.responseText);
+    } catch (err) {
+      flash(calculateButton, 'Error — try again');
+      return;
+    }
 
-        // Update marker
-        if (stationMarker) stationMarker.remove();
+    // ROUTING_SPEC.md §5 — switch on the status.
+    switch (data && data.status) {
+      case 'ok': {
+        const st          = data.station;
+        const costDollars = (st.cost_cents / 100).toFixed(2);
+        clearMarker();
         stationMarker = new mapboxgl.Marker({ color: '#88eeff' })
-          .setLngLat([lon, lat])
+          .setLngLat([st.lon, st.lat])
           .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
-            `<strong style="font-size:13px;color:#111">${data[0]}</strong><br>` +
-            `<span style="color:#444;font-size:12px">~$${costDollars} est. &nbsp;·&nbsp; ${data[1]} km detour</span>`
+            `<strong style="font-size:13px;color:#111">${st.brand} — ${st.address}</strong><br>` +
+            `<span style="color:#444;font-size:12px">~$${costDollars} est. &nbsp;·&nbsp; ${st.diversion_km} km detour</span>`
           ))
           .addTo(map);
         stationMarker.getPopup().addTo(map);
-
-        // Update route waypoint.
-        // Button stays disabled — route event re-enables it once the waypoint settles.
-        if (stationActive) {
-          // Station already in route: queue new one, remove old one first
-          stationActive    = false;
-          pendingWaypoint  = [lon, lat];
-          direction.removeWaypoint(1);
-        } else {
-          stationActive = true;
-          direction.addWaypoint(1, [lon, lat]);
-        }
-      } else {
-        flash(calculateButton, 'No station found');
+        // Button re-enables once the waypoint settles (next route event).
+        setFuelStop(st.lon, st.lat);
+        break;
       }
-    } catch (err) {
-      flash(calculateButton, 'Error — try again');
+
+      case 'no_stop_needed':
+        clearFuelStop();
+        flash(calculateButton, `No stop needed — arrive ~${data.tank_at_dest} L`);
+        break;
+
+      case 'too_far':
+        clearFuelStop();
+        flash(calculateButton, 'Too far for one tank');
+        break;
+
+      case 'unreachable':
+        clearFuelStop();
+        flash(calculateButton, 'No station near route');
+        break;
+
+      default:
+        flash(calculateButton, 'Error — try again');
     }
   };
 
@@ -262,18 +337,14 @@ calculateButton.addEventListener('click', () => {
   };
 });
 
-resetButton.addEventListener('click', () => {
-  if (stationMarker) { stationMarker.remove(); stationMarker = null; }
-  if (stationActive) {
-    stationActive = false;
-    direction.removeWaypoint(1);
-    // route event will re-enable button and restore baseRoutePoints
-  }
-});
+resetButton.addEventListener('click', clearFuelStop);
 
 function flash(btn, msg) {
   const prev    = btn.textContent;
   btn.textContent = msg;
   btn.disabled    = false;
-  setTimeout(() => { btn.textContent = prev; }, 2000);
+  setTimeout(() => {
+    btn.textContent = prev;
+    btn.disabled    = false;
+  }, 2000);
 }

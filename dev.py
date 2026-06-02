@@ -22,25 +22,24 @@ class DevHandler(SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
 
             path          = body['path']
-            km_per_l      = float(body['efficiency'])
-            desired       = float(body['capacity'])
+            efficiency    = float(body['efficiency'])   # L/100km
+            capacity      = float(body['capacity'])     # max tank size
             current       = float(body['current_tank'])
             has_rac       = int(body.get('RAC',    1)) == 0
             has_woolies   = int(body.get('Woolies', 1)) == 0
 
-            print(f'  → {len(path)} route points | efficiency={km_per_l} | tank={current}/{desired}L | RAC={has_rac} | Woolies={has_woolies}')
+            print(f'  → {len(path)} route points | efficiency={efficiency} L/100km | tank={current}/{capacity}L | RAC={has_rac} | Woolies={has_woolies}')
             stations = fetch_stations()
             print(f'  → {len(stations)} stations fetched from FuelWatch')
-            result = find_best_station(path, stations, km_per_l, desired, current, has_rac, has_woolies)
+            result = find_best_station(path, stations, efficiency, capacity, current, has_rac, has_woolies)
 
-            if result is None:
-                print('  → No station found')
-                self._json(404, {'error': 'No suitable station found along this route'})
-                return
-
-            print(f'  → Best: {result["brand"]} @ {result["address"]} | {result["price"]} c/L | diversion {result["diversion_km"]} km')
-            payload = [result['address'], result['diversion_km'], result['total_cost_cents'], [result['lat'], result['lon']]]
-            self._json(200, payload)
+            status = result.get('status')
+            if status == 'ok':
+                st = result['station']
+                print(f'  → Best: {st["brand"]} @ {st["address"]} | {st["effective_price"]} c/L | diversion {st["diversion_km"]} km')
+            else:
+                print(f'  → {status}')
+            self._json(200, result)
 
         except Exception as e:
             import traceback; traceback.print_exc()
