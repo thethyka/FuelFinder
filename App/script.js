@@ -1,3 +1,5 @@
+document.getElementById('help-modal').style.display = 'flex';
+
 mapboxgl.accessToken = 'pk.eyJ1Ijoic21vaGFuMjAwMSIsImEiOiJjbDVkaDZiNmwwNmwwM2ZvMXYwbDVieG9uIn0.hpEwFPqANepe3lUep9EU1Q';
 const map = new mapboxgl.Map({
     container: 'map', // container ID
