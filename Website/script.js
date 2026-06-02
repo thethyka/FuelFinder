@@ -138,49 +138,80 @@ document.getElementById('help-modal').style.display = 'flex';
 
 const calculateButton = document.getElementById('btn');
 const resetButton     = document.getElementById('btn2');
-let routePoints = [];
-let stationMarker = null;
+
+let baseRoutePoints = [];   // original A→B points, never includes the station waypoint
+let stationActive   = false;
+let pendingWaypoint = null; // [lon, lat] queued to add once removeWaypoint settles
+let stationMarker   = null;
 
 direction.on('route', (event) => {
+  // Collect points across all legs
   const pointsArr = [];
-  const allSteps  = event.route[0].legs[0].steps;
-  for (let i = 0; i < allSteps.length; i++) {
-    const intersections = allSteps[i].intersections;
-    for (let j = 0; j < intersections.length; j++) {
-      pointsArr.push([intersections[j].location[1], intersections[j].location[0]]);
+  for (const leg of event.route[0].legs) {
+    for (const step of leg.steps) {
+      for (const ix of step.intersections) {
+        pointsArr.push([ix.location[1], ix.location[0]]);
+      }
     }
   }
-  routePoints = pointsArr;
+
+  if (pendingWaypoint) {
+    // removeWaypoint just settled — route is back to A→B.
+    // Save it, then add the new station waypoint.
+    baseRoutePoints = pointsArr;
+    const [lon, lat] = pendingWaypoint;
+    pendingWaypoint  = null;
+    stationActive    = true;
+    direction.addWaypoint(1, [lon, lat]);
+    return; // button stays disabled until addWaypoint settles (next route event)
+  }
+
+  if (!stationActive) {
+    // Pure user-drawn A→B route — save as base
+    baseRoutePoints = pointsArr;
+  }
+  // Re-enable after every settled route (initial draw, or after addWaypoint finishes)
   calculateButton.textContent = 'Calculate';
-  calculateButton.disabled = false;
+  calculateButton.disabled    = false;
 });
 
 calculateButton.addEventListener('click', () => {
-  if (!routePoints.length) {
-    calculateButton.textContent = 'Pick route first';
-    setTimeout(() => { calculateButton.textContent = 'Calculate'; }, 1400);
+  if (!baseRoutePoints.length) {
+    flash(calculateButton, 'Draw a route first');
+    return;
+  }
+
+  const efficiency  = parseFloat(document.getElementById('fuel-efficiency').value);
+  const capacity    = parseFloat(document.getElementById('tank-after-fill').value);
+  const currentTank = parseFloat(document.getElementById('current-tank').value);
+
+  if (isNaN(efficiency) || efficiency <= 0) {
+    flash(calculateButton, 'Enter fuel efficiency');
+    document.getElementById('fuel-efficiency').focus();
+    return;
+  }
+  if (isNaN(capacity) || capacity <= 0) {
+    flash(calculateButton, 'Enter tank size');
+    document.getElementById('tank-after-fill').focus();
+    return;
+  }
+  if (isNaN(currentTank) || currentTank < 0) {
+    flash(calculateButton, 'Enter current tank');
+    document.getElementById('current-tank').focus();
     return;
   }
 
   calculateButton.textContent = 'Calculating...';
-  calculateButton.disabled = true;
+  calculateButton.disabled    = true;
 
-  const resetCalculateButton = () => {
-    calculateButton.textContent = 'Calculate';
-    calculateButton.disabled = false;
-  };
-
-  const efficiency  = parseFloat(document.getElementById('fuel-efficiency').value)  || 12;
-  const capacity    = parseFloat(document.getElementById('tank-after-fill').value)   || 50;
-  const currentTank = parseFloat(document.getElementById('current-tank').value)      || 5;
-  const rac         = document.getElementById('rac-member').checked ? 0 : 1;
-  const woolies     = document.getElementById('woolworths-rewards-program').checked ? 0 : 1;
+  const rac     = document.getElementById('rac-member').checked ? 0 : 1;
+  const woolies = document.getElementById('woolworths-rewards-program').checked ? 0 : 1;
 
   const xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/servo', true);
   xhr.setRequestHeader('Content-Type', 'application/json');
   xhr.send(JSON.stringify({
-    path: routePoints,
+    path:         baseRoutePoints,  // always send the original A→B route
     efficiency:   efficiency,
     capacity:     capacity,
     current_tank: currentTank,
@@ -192,41 +223,57 @@ calculateButton.addEventListener('click', () => {
     try {
       const data = JSON.parse(this.responseText);
       if (this.status === 200 && Array.isArray(data)) {
-        const latitude  = data[3][0];
-        const longitude = data[3][1];
+        const lat         = data[3][0];
+        const lon         = data[3][1];
+        const costDollars = (data[2] / 100).toFixed(2);
 
-        // Remove previous marker if any
+        // Update marker
         if (stationMarker) stationMarker.remove();
-
-        direction.addWaypoint(1, [longitude, latitude]);
-
         stationMarker = new mapboxgl.Marker({ color: '#88eeff' })
-          .setLngLat([longitude, latitude])
-          .setPopup(new mapboxgl.Popup().setHTML(
-            `<strong style="color:#111">${data[0]}</strong><br>` +
-            `<span style="color:#333">${data[2] / 100 < 100 ? '$' + (data[2] / 100).toFixed(2) : Math.round(data[2] / 100) + '¢'} estimated · ${data[1]} km diversion</span>`
+          .setLngLat([lon, lat])
+          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+            `<strong style="font-size:13px;color:#111">${data[0]}</strong><br>` +
+            `<span style="color:#444;font-size:12px">~$${costDollars} est. &nbsp;·&nbsp; ${data[1]} km detour</span>`
           ))
           .addTo(map);
         stationMarker.getPopup().addTo(map);
+
+        // Update route waypoint.
+        // Button stays disabled — route event re-enables it once the waypoint settles.
+        if (stationActive) {
+          // Station already in route: queue new one, remove old one first
+          stationActive    = false;
+          pendingWaypoint  = [lon, lat];
+          direction.removeWaypoint(1);
+        } else {
+          stationActive = true;
+          direction.addWaypoint(1, [lon, lat]);
+        }
       } else {
-        console.error('No station found:', data);
+        flash(calculateButton, 'No station found');
       }
-    } catch (error) {
-      console.error('Could not process servo response', error);
-    } finally {
-      resetCalculateButton();
+    } catch (err) {
+      flash(calculateButton, 'Error — try again');
     }
   };
 
   xhr.onerror = function () {
-    resetCalculateButton();
+    flash(calculateButton, 'Network error');
   };
 });
 
 resetButton.addEventListener('click', () => {
-  direction.removeWaypoint(1);
   if (stationMarker) { stationMarker.remove(); stationMarker = null; }
-  routePoints = [];
-  calculateButton.textContent = 'Calculate';
-  calculateButton.disabled = false;
+  if (stationActive) {
+    stationActive = false;
+    direction.removeWaypoint(1);
+    // route event will re-enable button and restore baseRoutePoints
+  }
 });
+
+function flash(btn, msg) {
+  const prev    = btn.textContent;
+  btn.textContent = msg;
+  btn.disabled    = false;
+  setTimeout(() => { btn.textContent = prev; }, 2000);
+}

@@ -66,9 +66,12 @@
       </div>
 
       <div class="inputs">
-        <input type="text"   placeholder="Fuel Efficiency (L/100km)" id="fuel-efficiency">
-        <input type="number" placeholder="Tank After Fill (L)"       id="tank-after-fill">
-        <input type="number" placeholder="Current Tank (L)"          id="current-tank">
+        <label class="field-label" for="fuel-efficiency">Fuel Efficiency</label>
+        <input type="number" step="0.1" placeholder="litres/100km — e.g. 10" id="fuel-efficiency">
+        <label class="field-label" for="tank-after-fill">Fill To</lsabel>
+        <input type="number" step="1"   placeholder="litres — e.g. 50"      id="tank-after-fill">
+        <label class="field-label" for="current-tank">Current Tank</label>
+        <input type="number" step="1"   placeholder="litres — e.g. 15"      id="current-tank">
         <div class="calculate-panel">
           <button id="btn" type="button">Calculate</button>
           <button id="btn2" type="button">Reset</button>

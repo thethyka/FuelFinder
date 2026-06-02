@@ -61,11 +61,39 @@ body {
   z-index: 2;
 }
 
+.field-label {
+  display: block;
+  font-family: 'Magz', sans-serif;
+  font-size: 0.8rem;
+  color: rgba(136, 238, 255, 0.7);
+  margin-top: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+
+.inputs input {
+  background: rgba(8, 6, 23, 0.7);
+  border: 1px solid rgba(136, 238, 255, 0.3);
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'Magz', sans-serif;
+  font-size: 1rem;
+  padding: 0.45rem 0.7rem;
+  width: 14rem;
+  display: block;
+  margin-bottom: 0.4rem;
+  outline: none;
+}
+
+.inputs input:focus {
+  border-color: rgba(136, 238, 255, 0.7);
+  box-shadow: 0 0 8px rgba(136, 238, 255, 0.2);
+}
+
 ::placeholder {
   font-family: 'Magz', sans-serif;
-  font-size: small;
-  font-weight: bold;
-  padding-left: 0.5rem;
+  font-size: 0.9rem;
+  color: rgba(136, 238, 255, 0.45);
+  padding-left: 0;
 }
 
 .fuel-discounts: {
