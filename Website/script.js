@@ -1,11 +1,11 @@
 mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
 if (!mapboxgl.accessToken) {
-  throw new Error('Missing Mapbox token. Set MAPBOX_TOKEN in GitHub Actions secrets.');
+  throw new Error('Missing Mapbox token. Set MAPBOX_TOKEN in GitHub Actions secrets or Vercel env vars.');
 }
 
 const map = new mapboxgl.Map({
-  container: 'map', // container ID
+  container: 'map',
   style: {
     version: 8,
     sources: {
@@ -19,28 +19,21 @@ const map = new mapboxgl.Map({
       {
         id: 'background',
         type: 'background',
-        paint: {
-          'background-color': '#080617'
-        }
+        paint: { 'background-color': '#080617' }
       },
       {
         id: 'land',
         type: 'fill',
         source: 'mapbox-streets',
         'source-layer': 'landuse',
-        paint: {
-          'fill-color': '#121126',
-          'fill-opacity': 0.9
-        }
+        paint: { 'fill-color': '#121126', 'fill-opacity': 0.9 }
       },
       {
         id: 'water',
         type: 'fill',
         source: 'mapbox-streets',
         'source-layer': 'water',
-        paint: {
-          'fill-color': '#050b1f'
-        }
+        paint: { 'fill-color': '#050b1f' }
       },
       {
         id: 'roads-minor',
@@ -115,19 +108,17 @@ const map = new mapboxgl.Map({
       }
     ]
   },
-  center: [115.816, -31.980], // starting position [lng, lat]
-  zoom: 13 // starting zoom
+  center: [115.816, -31.980],
+  zoom: 13
 });
 
 map.on('style.load', () => {
-  map.setFog({}); // Set the default atmosphere style
+  map.setFog({});
 });
 
 map.addControl(
   new mapboxgl.GeolocateControl({
-    positionOptions: {
-      enableHighAccuracy: true
-    },
+    positionOptions: { enableHighAccuracy: true },
     trackUserLocation: true,
     showUserHeading: true,
   }),
@@ -140,22 +131,25 @@ const direction = new MapboxDirections({
   profile: 'mapbox/driving',
 });
 
+map.addControl(direction, 'top-right');
+
+// Show modal on load
+document.getElementById('help-modal').style.display = 'flex';
+
 const calculateButton = document.getElementById('btn');
+const resetButton     = document.getElementById('btn2');
 let routePoints = [];
+let stationMarker = null;
 
 direction.on('route', (event) => {
   const pointsArr = [];
-  const allSteps = event.route[0].legs[0].steps;
-  const stepsLen = event.route[0].legs[0].steps.length;
-
-  for (let i = 0; i < stepsLen; i++) {
-    const intersectionLen = allSteps[i].intersections.length;
+  const allSteps  = event.route[0].legs[0].steps;
+  for (let i = 0; i < allSteps.length; i++) {
     const intersections = allSteps[i].intersections;
-    for (let j = 0; j < intersectionLen; j++) {
+    for (let j = 0; j < intersections.length; j++) {
       pointsArr.push([intersections[j].location[1], intersections[j].location[0]]);
     }
   }
-
   routePoints = pointsArr;
   calculateButton.textContent = 'Calculate';
   calculateButton.disabled = false;
@@ -164,9 +158,7 @@ direction.on('route', (event) => {
 calculateButton.addEventListener('click', () => {
   if (!routePoints.length) {
     calculateButton.textContent = 'Pick route first';
-    setTimeout(() => {
-      calculateButton.textContent = 'Calculate';
-    }, 1400);
+    setTimeout(() => { calculateButton.textContent = 'Calculate'; }, 1400);
     return;
   }
 
@@ -178,41 +170,63 @@ calculateButton.addEventListener('click', () => {
     calculateButton.disabled = false;
   };
 
+  const efficiency  = parseFloat(document.getElementById('fuel-efficiency').value)  || 12;
+  const capacity    = parseFloat(document.getElementById('tank-after-fill').value)   || 50;
+  const currentTank = parseFloat(document.getElementById('current-tank').value)      || 5;
+  const rac         = document.getElementById('rac-member').checked ? 0 : 1;
+  const woolies     = document.getElementById('woolworths-rewards-program').checked ? 0 : 1;
+
   const xhr = new XMLHttpRequest();
-  xhr.open("POST", "/servo", true);
+  xhr.open('POST', '/api/servo', true);
   xhr.setRequestHeader('Content-Type', 'application/json');
   xhr.send(JSON.stringify({
     path: routePoints,
-    efficiency: 5,
-    capacity: 50,
-    current_tank: 2,
-    RAC: 0,
-    Woolies: 0
+    efficiency:   efficiency,
+    capacity:     capacity,
+    current_tank: currentTank,
+    RAC:          rac,
+    Woolies:      woolies,
   }));
 
   xhr.onload = function () {
     try {
-      console.log("HELLO")
-      console.log(this.responseText);
-      var data = JSON.parse(this.responseText);
-      console.log(data);
+      const data = JSON.parse(this.responseText);
+      if (this.status === 200 && Array.isArray(data)) {
+        const latitude  = data[3][0];
+        const longitude = data[3][1];
+
+        // Remove previous marker if any
+        if (stationMarker) stationMarker.remove();
+
+        direction.addWaypoint(1, [longitude, latitude]);
+
+        stationMarker = new mapboxgl.Marker({ color: '#88eeff' })
+          .setLngLat([longitude, latitude])
+          .setPopup(new mapboxgl.Popup().setHTML(
+            `<strong style="color:#111">${data[0]}</strong><br>` +
+            `<span style="color:#333">${data[2] / 100 < 100 ? '$' + (data[2] / 100).toFixed(2) : Math.round(data[2] / 100) + '¢'} estimated · ${data[1]} km diversion</span>`
+          ))
+          .addTo(map);
+        stationMarker.getPopup().addTo(map);
+      } else {
+        console.error('No station found:', data);
+      }
     } catch (error) {
       console.error('Could not process servo response', error);
     } finally {
       resetCalculateButton();
     }
-  }
+  };
 
   xhr.onerror = function () {
     resetCalculateButton();
-  }
+  };
 });
 
-map.addControl(
-  direction,
-  'top-right'
-);
-
-/* direction.addWaypoint (
-  1, [lng, lat]
-); */
+resetButton.addEventListener('click', () => {
+  direction.removeWaypoint(1);
+  if (stationMarker) { stationMarker.remove(); stationMarker = null; }
+  routePoints = [];
+  calculateButton.textContent = 'Calculate';
+  calculateButton.disabled = false;
+});

@@ -1,0 +1,4 @@
+{
+  "outputDirectory": "Website",
+  "buildCommand": "printf 'window.MAPBOX_ACCESS_TOKEN=\"%s\";' \"$MAPBOX_TOKEN\" > Website/mapbox-config.js"
+}

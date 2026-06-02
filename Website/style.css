@@ -75,6 +75,7 @@ body {
   margin-top: 1.25rem;
   width: 100%;
   display: flex;
+  gap: 0.6rem;
   justify-content: flex-start;
   pointer-events: none;
 }
@@ -164,6 +165,188 @@ body {
   right: 0.9rem;
 }
 
+
+/* ── Reset button ── */
+#btn2 {
+  font-family: 'Magz', sans-serif;
+  font-size: 1.25rem;
+  color: rgba(136, 238, 255, 0.6);
+  background: rgba(8, 6, 23, 0.7);
+  border: 1px solid rgba(136, 238, 255, 0.35);
+  border-radius: 999px;
+  min-width: 6rem;
+  min-height: 2.6rem;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+#btn2:hover {
+  color: #f542da;
+  border-color: rgba(245, 66, 218, 0.5);
+}
+
+/* ── Help button ── */
+#help-btn {
+  font-family: 'Magz', sans-serif;
+  font-size: 1.3rem;
+  color: #88eeff;
+  background: rgba(8, 6, 23, 0.82);
+  border: 1px solid rgba(136, 238, 255, 0.35);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 10px;
+  right: 360px;
+  z-index: 50;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.2s, color 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+#help-btn:hover {
+  color: #f542da;
+  border-color: rgba(245, 66, 218, 0.5);
+  box-shadow: 0 0 12px rgba(245, 66, 218, 0.25);
+}
+
+/* ── Help modal overlay ── */
+#help-modal {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ── Modal card ── */
+#help-modal-card {
+  background: rgba(8, 6, 23, 0.97);
+  border: 1px solid rgba(136, 238, 255, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6), 0 0 30px rgba(136, 238, 255, 0.06);
+  max-width: 500px;
+  width: calc(100% - 40px);
+  padding: 28px 30px;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #c4c4c8;
+  line-height: 1.55;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.hm-title {
+  font-family: 'Magz', sans-serif;
+  font-size: 2rem;
+  color: #f542da;
+  text-shadow: 1px 1px #88eeff;
+  margin-bottom: 4px;
+}
+
+.hm-subtitle {
+  font-size: 12px;
+  color: #52525b;
+  margin-bottom: 16px;
+  letter-spacing: 0.01em;
+}
+
+.hm-body {
+  font-size: 14px;
+  margin: 0 0 18px;
+}
+
+.hm-body strong {
+  color: #fff;
+}
+
+.hm-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #3f3f46;
+  margin-bottom: 10px;
+}
+
+.hm-steps {
+  font-size: 13px;
+  margin: 0 0 18px;
+  padding-left: 20px;
+}
+
+.hm-steps li {
+  margin-bottom: 6px;
+}
+
+.hm-steps strong {
+  color: #88eeff;
+}
+
+.hm-discounts {
+  margin-bottom: 20px;
+}
+
+.hm-discount-row {
+  font-size: 13px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hm-tag {
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(136, 238, 255, 0.08);
+  color: #88eeff;
+  border: 1px solid rgba(136, 238, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+
+.hm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 22px;
+}
+
+.hm-chip {
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #71717a;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.hm-close {
+  font-family: 'Magz', sans-serif;
+  font-size: 1.2rem;
+  color: #080617;
+  background: #88eeff;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.hm-close:hover {
+  background: #a8f4ff;
+  box-shadow: 0 0 16px rgba(136, 238, 255, 0.4);
+}
 
 @keyframes car {
   0% {

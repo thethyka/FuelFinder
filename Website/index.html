@@ -6,7 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Fuel Finder</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.cdnfonts.com/css/magz" rel="stylesheet">    
+    <link href="https://fonts.cdnfonts.com/css/magz" rel="stylesheet">
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
     <link rel="icon" type="./public/favicon_io" href="./public/favicon_io/favicon.ico"
@@ -19,20 +19,62 @@
 
       <h1 id="logo">Fuel Finder</h1>
 
+      <!-- Help button -->
+      <button id="help-btn" onclick="document.getElementById('help-modal').style.display='flex'" aria-label="About this project">?</button>
+
+      <!-- Help modal -->
+      <div id="help-modal" onclick="if(event.target===this)this.style.display='none'">
+        <div id="help-modal-card" onclick="event.stopPropagation()">
+          <div class="hm-title">Fuel Finder</div>
+          <div class="hm-subtitle">Route-aware fuel cost optimiser &middot; Hackathon project</div>
+
+          <p class="hm-body">
+            FuelFinder finds the cheapest fuel stop along your drive &mdash; not just by
+            price, but by <strong>true total cost</strong>. It fetches live prices from the
+            WA Government FuelWatch feed, then models the fuel burned reaching each station
+            and the detour distance, recommending the single stop that minimises your trip cost.
+          </p>
+
+          <div class="hm-section-label">How to use</div>
+          <ol class="hm-steps">
+            <li>Draw your route using the directions panel on the right</li>
+            <li>Enter your fuel efficiency (L/100km), desired fill amount, and current tank level</li>
+            <li>Tick any loyalty cards you hold for automatic discounts</li>
+            <li>Click <strong>Calculate</strong> &mdash; the optimal stop is pinned to your route</li>
+          </ol>
+
+          <div class="hm-section-label">Loyalty discounts</div>
+          <div class="hm-discounts">
+            <div class="hm-discount-row"><span class="hm-tag">RAC</span> &minus;4&cent;/L at Puma, Caltex, Better Choice</div>
+            <div class="hm-discount-row"><span class="hm-tag">Woolworths</span> &minus;4&cent;/L at Ampol, EG Ampol, Caltex Woolworths</div>
+          </div>
+
+          <div class="hm-chips">
+            <span class="hm-chip">Python</span>
+            <span class="hm-chip">Vercel Serverless</span>
+            <span class="hm-chip">Mapbox GL JS</span>
+            <span class="hm-chip">FuelWatch RSS</span>
+          </div>
+
+          <button class="hm-close" onclick="document.getElementById('help-modal').style.display='none'">Start navigating &rsaquo;</button>
+        </div>
+      </div>
+
       <div class="fuel-discounts">
-          <input type="checkbox">RAC member
-          <input type="checkbox">Woolworths Rewards Program
+          <input type="checkbox" id="rac-member">RAC member
+          <input type="checkbox" id="woolworths-rewards-program">Woolworths Rewards Program
       </div>
 
       <div class="inputs">
-        <input type="text" placeholder="Fuel Efficiency">
-        <input type="number" placeholder="Tank After Fill">
-        <input type="number" placeholder="Current Tank">
+        <input type="text"   placeholder="Fuel Efficiency (L/100km)" id="fuel-efficiency">
+        <input type="number" placeholder="Tank After Fill (L)"       id="tank-after-fill">
+        <input type="number" placeholder="Current Tank (L)"          id="current-tank">
         <div class="calculate-panel">
           <button id="btn" type="button">Calculate</button>
+          <button id="btn2" type="button">Reset</button>
         </div>
       </div>
-    
+
       <div id="map"></div>
 
       <div id="car" aria-hidden="true">
