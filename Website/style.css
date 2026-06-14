@@ -454,3 +454,131 @@ body {
     left: 3000px;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Mobile layout (phones / small tablets)
+
+   Desktop scatters absolutely-positioned panels across the screen, which
+   overlap and overflow on a phone. Here we collapse everything into a clean
+   stack: full-width route search docked at the top, the map filling the
+   middle, and the fuel controls as a scrollable bottom sheet. The big logo,
+   the help button, and the verbose turn-by-turn instructions are hidden to
+   reclaim space (the help modal still auto-opens on load).
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body,
+  #map {
+    height: 100vh;
+    height: 100dvh; /* avoids the gap left by the mobile URL bar */
+  }
+
+  /* Reclaim space: the logo and help button add clutter we can't afford. */
+  #logo,
+  #help-btn,
+  #car {
+    display: none !important;
+  }
+
+  /* Route search (Mapbox Directions): dock full-width at the top... */
+  .mapboxgl-ctrl-top-right {
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .directions-control.directions-control-directions {
+    float: none;
+    margin: 8px auto !important;
+    width: calc(100% - 16px) !important;
+    min-width: 0 !important;
+    max-width: 520px !important;
+  }
+  .directions-control-inputs {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .directions-control-inputs .mapboxgl-ctrl-geocoder {
+    width: 100%;
+    max-width: none;
+  }
+  /* ...but drop the long turn-by-turn list and route summary. */
+  .directions-control-instructions,
+  .mapbox-directions-instructions {
+    display: none !important;
+  }
+
+  /* Fuel controls: a docked, scrollable bottom sheet. */
+  .controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    max-height: 50vh;
+    overflow-y: auto;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    background: rgba(8, 6, 23, 0.94);
+    border-top: 1px solid rgba(136, 238, 255, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .controls .fuel-discounts,
+  .controls .inputs {
+    position: static;
+    top: auto;
+    left: auto;
+  }
+
+  /* Loyalty checkboxes: a compact wrapping row. */
+  .controls .fuel-discounts {
+    font-size: 0.9rem;
+    line-height: 1.9;
+    margin-bottom: 10px;
+  }
+  .controls .fuel-discounts input {
+    margin: 0 4px 0 0;
+    vertical-align: middle;
+  }
+  .controls .fuel-discounts input + input {
+    margin-left: 14px;
+  }
+
+  /* Fields as label/control pairs in a two-column grid to save height. */
+  .controls .inputs {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 8px 12px;
+  }
+  .controls .inputs .field-label {
+    margin: 0;
+  }
+  .controls .inputs input,
+  .controls .inputs select {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    font-size: 16px; /* >=16px stops iOS from zooming on focus */
+  }
+  .controls .inputs select {
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+  }
+
+  /* Buttons span the full width of the sheet and share the row evenly. */
+  .controls .calculate-panel {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    gap: 8px;
+  }
+  .controls .calculate-panel #btn {
+    flex: 2;
+    min-width: 0;
+  }
+  .controls .calculate-panel #btn2 {
+    flex: 1;
+    min-width: 0;
+  }
+}

@@ -9,7 +9,7 @@
     <link href="https://fonts.cdnfonts.com/css/magz" rel="stylesheet">
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
-    <link rel="icon" type="./public/favicon_io" href="./public/favicon_io/favicon.ico"
+    <link rel="icon" type="image/x-icon" href="./public/favicon_io/favicon.ico">
   </head>
 
   <body>
@@ -29,18 +29,19 @@
           <div class="hm-subtitle">Route-aware fuel cost optimiser &middot; Hackathon project</div>
 
           <p class="hm-body">
-            FuelFinder finds the cheapest fuel stop along your drive &mdash; not just by
-            price, but by <strong>true total cost</strong>. It fetches live prices from the
-            WA Government FuelWatch feed, then models the fuel burned reaching each station
-            and the detour distance, recommending the single stop that minimises your trip cost.
+            FuelFinder finds the cheapest fuel stop along your drive, ranked by
+            <strong>true total cost</strong> rather than sticker price. It pulls live prices
+            Australia-wide (WA FuelWatch plus PetrolSpy elsewhere), then models the fuel burned
+            reaching each station and the detour distance to recommend the single stop that
+            minimises your trip cost.
           </p>
 
           <div class="hm-section-label">How to use</div>
           <ol class="hm-steps">
             <li>Draw your route using the directions panel on the right</li>
-            <li>Enter your fuel efficiency (L/100km), tank capacity, and current tank level</li>
+            <li>Pick your fuel type, then enter your efficiency (L/100km), tank capacity, and current level</li>
             <li>Tick any loyalty cards you hold for automatic discounts</li>
-            <li>Click <strong>Calculate</strong> &mdash; the optimal stop is pinned to your route</li>
+            <li>Click <strong>Calculate</strong>. The optimal stop is pinned to your route</li>
           </ol>
 
           <div class="hm-section-label">Loyalty discounts</div>
@@ -53,7 +54,7 @@
             <span class="hm-chip">Python</span>
             <span class="hm-chip">Vercel Serverless</span>
             <span class="hm-chip">Mapbox GL JS</span>
-            <span class="hm-chip">FuelWatch RSS</span>
+            <span class="hm-chip">FuelWatch + PetrolSpy</span>
           </div>
 
           <button class="hm-close" onclick="document.getElementById('help-modal').style.display='none'">Start navigating &rsaquo;</button>
@@ -84,6 +85,7 @@
         </div>
       </div>
 
+      <div class="controls">
       <div class="fuel-discounts">
           <input type="checkbox" id="rac-member">RAC member
           <input type="checkbox" id="woolworths-rewards-program">Woolworths Rewards Program
@@ -102,26 +104,26 @@
           <button type="button" class="field-help-btn" aria-label="Fuel efficiency guide"
                   onclick="document.getElementById('efficiency-modal').style.display='flex'">?</button>
         </label>
-        <input type="number" step="0.1" placeholder="litres/100km — e.g. 10" id="fuel-efficiency">
+        <input type="number" step="0.1" placeholder="litres/100km, e.g. 10" id="fuel-efficiency">
         <label class="field-label" for="tank-capacity">Tank Capacity</label>
-        <input type="number" step="1"   placeholder="litres — e.g. 60"      id="tank-capacity">
+        <input type="number" step="1"   placeholder="litres, e.g. 60"       id="tank-capacity">
         <label class="field-label" for="current-tank">Current Tank</label>
-        <input type="number" step="1"   placeholder="litres — e.g. 15"      id="current-tank">
+        <input type="number" step="1"   placeholder="litres, e.g. 15"       id="current-tank">
         <div class="calculate-panel">
           <button id="btn" type="button">Calculate</button>
           <button id="btn2" type="button">Reset</button>
         </div>
       </div>
+      </div>
 
       <div id="map"></div>
+
 
       <div id="car" aria-hidden="true">
         <span class="car-body"></span>
         <span class="car-window"></span>
         <span class="car-wheel car-wheel-left"></span>
         <span class="car-wheel car-wheel-right"></span>
-      </div>
-
       </div>
 
   <script src="mapbox-config.js"></script>

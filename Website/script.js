@@ -117,7 +117,7 @@ map.on('style.load', () => {
 });
 
 // On load, recenter on the user's location *only if they've already shared it*
-// (permission already granted) — otherwise we stay on the default view and never
+// (permission already granted), otherwise we stay on the default view and never
 // prompt unsolicited. The GeolocateControl below still lets them opt in manually.
 function centerOnUser() {
   navigator.geolocation.getCurrentPosition(
@@ -125,7 +125,7 @@ function centerOnUser() {
       const { longitude, latitude } = pos.coords;
       map.jumpTo({ center: [longitude, latitude], zoom: 13 });
     },
-    () => {}, // denied or unavailable — keep the default view
+    () => {}, // denied or unavailable, keep the default view
     { enableHighAccuracy: true, maximumAge: 60000, timeout: 8000 }
   );
 }
@@ -137,7 +137,7 @@ if (navigator.geolocation) {
       .then((status) => {
         if (status.state === 'granted') centerOnUser();
       })
-      .catch(() => {}); // Permissions API unsupported — stay on default view
+      .catch(() => {}); // Permissions API unsupported, stay on default view
   }
 }
 
@@ -207,7 +207,7 @@ function clearFuelStop() {
 }
 
 direction.on('route', (event) => {
-  // A removeWaypoint just settled and a replacement stop is queued — add it now,
+  // A removeWaypoint just settled and a replacement stop is queued; add it now,
   // after the route is back to A→B, so requests are strictly sequenced.
   if (pendingFuelStop) {
     const [lon, lat] = pendingFuelStop;
@@ -226,7 +226,7 @@ direction.on('route', (event) => {
   calculateButton.disabled    = false;
 });
 
-// If the user edits either endpoint, any existing stop is stale — drop it.
+// If the user edits either endpoint, any existing stop is stale, so drop it.
 // The next route they draw is captured fresh, so old locations never linger.
 //
 // BUT the Directions plugin re-fires 'origin'/'destination' as a side effect of
@@ -303,7 +303,7 @@ calculateButton.addEventListener('click', () => {
   xhr.setRequestHeader('Content-Type', 'application/json');
   xhr.send(JSON.stringify({
     path:         userRoutePoints,  // always the original A→B route
-    efficiency:   efficiency,       // L/100km — backend converts to km/L
+    efficiency:   efficiency,       // L/100km, backend converts to km/L
     capacity:     capacity,
     current_tank: currentTank,
     RAC:          rac,
@@ -316,11 +316,11 @@ calculateButton.addEventListener('click', () => {
     try {
       data = JSON.parse(this.responseText);
     } catch (err) {
-      flash(calculateButton, 'Error — try again');
+      flash(calculateButton, 'Error, try again');
       return;
     }
 
-    // ROUTING_SPEC.md §5 — switch on the status.
+    // ROUTING_SPEC.md §5: switch on the status.
     switch (data && data.status) {
       case 'ok': {
         const st          = data.station;
@@ -329,7 +329,7 @@ calculateButton.addEventListener('click', () => {
         stationMarker = new mapboxgl.Marker({ color: '#88eeff' })
           .setLngLat([st.lon, st.lat])
           .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
-            `<strong style="font-size:13px;color:#111">${st.brand} — ${st.address}</strong><br>` +
+            `<strong style="font-size:13px;color:#111">${st.brand}, ${st.address}</strong><br>` +
             `<span style="color:#444;font-size:12px">~$${costDollars} est. &nbsp;·&nbsp; ${st.diversion_km} km detour</span>`
           ))
           .addTo(map);
@@ -341,7 +341,7 @@ calculateButton.addEventListener('click', () => {
 
       case 'no_stop_needed':
         clearFuelStop();
-        flash(calculateButton, `No stop needed — arrive ~${data.tank_at_dest} L`);
+        flash(calculateButton, `No stop needed, arrive ~${data.tank_at_dest} L`);
         break;
 
       case 'too_far':
@@ -355,7 +355,7 @@ calculateButton.addEventListener('click', () => {
         break;
 
       default:
-        flash(calculateButton, 'Error — try again');
+        flash(calculateButton, 'Error, try again');
     }
   };
 
