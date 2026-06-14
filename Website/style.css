@@ -112,6 +112,40 @@ body {
   box-shadow: 0 0 8px rgba(136, 238, 255, 0.2);
 }
 
+/* Directions A (origin) / B (destination) address fields come from the Mapbox
+   Geocoder plugin, whose CSS loads after this file. Its default is light text
+   on a white field, which is unreadable against our theme — force a dark field
+   with white text. !important is needed to beat the later-loaded plugin rules. */
+.mapboxgl-ctrl-geocoder {
+  background: #000 !important;
+  border: 1px solid rgba(136, 238, 255, 0.3) !important;
+  box-shadow: none !important;
+}
+.mapboxgl-ctrl-geocoder input,
+.mapboxgl-ctrl-geocoder--input {
+  background: #000 !important;
+  color: #fff !important;
+}
+.mapboxgl-ctrl-geocoder input::placeholder,
+.mapboxgl-ctrl-geocoder--input::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+.mapboxgl-ctrl-geocoder--icon {
+  fill: #88eeff !important;
+}
+/* Autocomplete suggestions drop-down: keep it dark and readable too. */
+.mapboxgl-ctrl-geocoder .suggestions {
+  background: #000 !important;
+  border: 1px solid rgba(136, 238, 255, 0.3) !important;
+}
+.mapboxgl-ctrl-geocoder .suggestions > li > a {
+  color: #fff !important;
+}
+.mapboxgl-ctrl-geocoder .suggestions > .active > a,
+.mapboxgl-ctrl-geocoder .suggestions > li > a:hover {
+  background: rgba(136, 238, 255, 0.15) !important;
+}
+
 ::placeholder {
   font-family: 'Magz', sans-serif;
   font-size: 0.9rem;
