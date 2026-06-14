@@ -367,6 +367,22 @@ body {
   flex-shrink: 0;
 }
 
+.hm-attribution {
+  font-size: 12px;
+  color: #71717a;
+  margin: 0 0 22px;
+  line-height: 1.5;
+}
+
+.hm-attribution a {
+  color: #88eeff;
+  text-decoration: none;
+}
+
+.hm-attribution a:hover {
+  text-decoration: underline;
+}
+
 .hm-chips {
   display: flex;
   flex-wrap: wrap;

@@ -36,6 +36,11 @@ class DevHandler(SimpleHTTPRequestHandler):
                 f'  → {len(path)} route points | efficiency={efficiency} L/100km | tank={current}/{capacity}L | RAC={has_rac} | Woolies={has_woolies} | region={region or "auto"} | fuel={fuel}'
             )
             stations = get_stations(path, region, fuel)
+            if stations is None:
+                # Route lies outside our licensed coverage (WA-only for now).
+                print("  → out_of_coverage")
+                self._json(200, {"status": "out_of_coverage"})
+                return
             print(f"  → {len(stations)} stations fetched")
             result = find_best_station(
                 path, stations, efficiency, capacity, current, has_rac, has_woolies

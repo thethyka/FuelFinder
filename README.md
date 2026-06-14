@@ -44,6 +44,10 @@ Fuel Finder uses **live, real-world fuel prices** pulled in fresh each time you
 search, so the recommendation reflects what stations are actually charging, not
 yesterday's numbers.
 
+Prices are sourced from [FuelWatch](https://www.fuelwatch.wa.gov.au)
+(© Government of Western Australia). **Coverage is currently Western Australia
+only** — routes outside WA will report that they're out of coverage.
+
 ## Good to know
 
 - Prices and stations update constantly, so what you see is a snapshot for right

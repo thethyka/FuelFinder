@@ -354,6 +354,11 @@ calculateButton.addEventListener('click', () => {
         flash(calculateButton, 'No station near route');
         break;
 
+      case 'out_of_coverage':
+        clearFuelStop();
+        flash(calculateButton, 'WA routes only for now');
+        break;
+
       default:
         flash(calculateButton, 'Error, try again');
     }

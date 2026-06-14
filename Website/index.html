@@ -30,10 +30,10 @@
 
           <p class="hm-body">
             FuelFinder finds the cheapest fuel stop along your drive, ranked by
-            <strong>true total cost</strong> rather than sticker price. It pulls live prices
-            Australia-wide (WA FuelWatch plus PetrolSpy elsewhere), then models the fuel burned
-            reaching each station and the detour distance to recommend the single stop that
-            minimises your trip cost.
+            <strong>true total cost</strong> rather than sticker price. It pulls live
+            <strong>Western Australia</strong> prices from the official FuelWatch feed, then
+            models the fuel burned reaching each station and the detour distance to recommend
+            the single stop that minimises your trip cost.
           </p>
 
           <div class="hm-section-label">How to use</div>
@@ -50,11 +50,19 @@
             <div class="hm-discount-row"><span class="hm-tag">Woolworths</span> &minus;4&cent;/L at Ampol, EG Ampol, Caltex Woolworths</div>
           </div>
 
+          <div class="hm-section-label">Data source</div>
+          <p class="hm-attribution">
+            Fuel prices are sourced from
+            <a href="https://www.fuelwatch.wa.gov.au" target="_blank" rel="noopener">FuelWatch</a>
+            (&copy; Government of Western Australia). Coverage is currently
+            Western Australia only.
+          </p>
+
           <div class="hm-chips">
             <span class="hm-chip">Python</span>
             <span class="hm-chip">Vercel Serverless</span>
             <span class="hm-chip">Mapbox GL JS</span>
-            <span class="hm-chip">FuelWatch + PetrolSpy</span>
+            <span class="hm-chip">FuelWatch (WA)</span>
           </div>
 
           <button class="hm-close" onclick="document.getElementById('help-modal').style.display='none'">Start navigating &rsaquo;</button>

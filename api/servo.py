@@ -215,8 +215,10 @@ def _fetch_petrolspy_adaptive(box, ps_key):
         if e.code != 500:
             raise
     lat_min, lat_max, lon_min, lon_max = box
-    if (lat_max - lat_min <= PETROLSPY_MIN_BOX_DEG
-            and lon_max - lon_min <= PETROLSPY_MIN_BOX_DEG):
+    if (
+        lat_max - lat_min <= PETROLSPY_MIN_BOX_DEG
+        and lon_max - lon_min <= PETROLSPY_MIN_BOX_DEG
+    ):
         return []
     mlat = (lat_min + lat_max) / 2
     mlon = (lon_min + lon_max) / 2
@@ -293,17 +295,23 @@ fetch_stations_vic = fetch_stations_petrolspy
 # FuelWatch feed; everywhere else in Australia uses PetrolSpy.
 WA_BORDER_LON = 129.0
 
+# WA-only launch: only the official WA FuelWatch feed is licensed for reuse.
+# The PetrolSpy nationwide path is kept in this module but disabled — its terms
+# prohibit automated access, so we don't ship it. Flip to False to re-enable
+# nationwide coverage once a licensed non-WA source (e.g. VIC Servo Saver,
+# NSW FuelCheck) is wired in.
+WA_ONLY = True
+
 
 def get_stations(path, region=None, fuel=DEFAULT_FUEL):
-    """Fetch live stations for a route, choosing the right national source.
+    """Fetch live stations for a route from a licensed source.
 
-    Coverage is all of Australia:
-      - ``"WA"``  -> official WA FuelWatch feed.
-      - anything else (``"VIC"``, ``"NSW"``, ``"QLD"``, ``"SA"``, ``"TAS"``,
-        ``"NT"``, or ``"AU"``) -> PetrolSpy's nationwide bounding-box feed.
+    Currently WA-only (``WA_ONLY``): only the official WA FuelWatch feed is used.
+    Routes outside WA return ``None``, which the handler reports as
+    ``out_of_coverage``.
 
     ``region`` is case-insensitive. When omitted it is inferred from the route's
-    longitude: west of the WA border uses FuelWatch, otherwise PetrolSpy.
+    longitude (west of the WA border = WA).
     ``fuel`` is a canonical key from ``FUEL_TYPES`` (defaults to ULP).
     """
     bbox = route_bbox(path, BBOX_PAD_DEG) if path else None
@@ -318,6 +326,8 @@ def get_stations(path, region=None, fuel=DEFAULT_FUEL):
 
     if region == "WA":
         return fetch_stations_wa(bbox, fuel)
+    if WA_ONLY:
+        return None
     return fetch_stations_petrolspy(bbox, fuel, path)
 
 
@@ -491,6 +501,10 @@ class handler(BaseHTTPRequestHandler):
             fuel = body.get("fuel", DEFAULT_FUEL)  # canonical key, defaults to ULP
 
             stations = get_stations(path, region, fuel)
+            if stations is None:
+                # Route lies outside our licensed coverage (WA-only for now).
+                self._json(200, {"status": "out_of_coverage"})
+                return
             result = find_best_station(
                 path,
                 stations,
