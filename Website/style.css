@@ -70,6 +70,29 @@ body {
   margin-bottom: 0.15rem;
 }
 
+/* Inline "?" help icon inside a field label */
+.field-help-btn {
+  font-family: 'Magz', sans-serif;
+  font-size: 0.7rem;
+  color: #88eeff;
+  background: rgba(136, 238, 255, 0.08);
+  border: 1px solid rgba(136, 238, 255, 0.35);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+  padding: 0;
+  margin-left: 0.35rem;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.field-help-btn:hover {
+  color: #f542da;
+  border-color: rgba(245, 66, 218, 0.5);
+  box-shadow: 0 0 8px rgba(245, 66, 218, 0.25);
+}
+
 .inputs input {
   background: rgba(8, 6, 23, 0.7);
   border: 1px solid rgba(136, 238, 255, 0.3);
@@ -245,7 +268,8 @@ body {
 }
 
 /* ── Help modal overlay ── */
-#help-modal {
+#help-modal,
+#efficiency-modal {
   display: none;
   align-items: center;
   justify-content: center;
@@ -258,7 +282,8 @@ body {
 }
 
 /* ── Modal card ── */
-#help-modal-card {
+#help-modal-card,
+#efficiency-modal-card {
   background: rgba(8, 6, 23, 0.97);
   border: 1px solid rgba(136, 238, 255, 0.18);
   border-radius: 14px;
@@ -374,6 +399,48 @@ body {
 .hm-close:hover {
   background: #a8f4ff;
   box-shadow: 0 0 16px rgba(136, 238, 255, 0.4);
+}
+
+/* ── Fuel efficiency reference rows ── */
+.hm-efficiency {
+  margin-bottom: 22px;
+  border: 1px solid rgba(136, 238, 255, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hm-eff-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  padding: 10px 14px;
+}
+
+.hm-eff-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.hm-eff-type {
+  color: #c4c4c8;
+}
+
+.hm-eff-val {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #88eeff;
+  white-space: nowrap;
+}
+
+.hm-eff-val::after {
+  content: ' L/100km';
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: #71717a;
 }
 
 @keyframes car {

@@ -60,13 +60,48 @@
         </div>
       </div>
 
+      <!-- Fuel efficiency guide modal -->
+      <div id="efficiency-modal" onclick="if(event.target===this)this.style.display='none'">
+        <div id="efficiency-modal-card" onclick="event.stopPropagation()">
+          <div class="hm-title">Fuel Efficiency</div>
+          <div class="hm-subtitle">Typical combined fuel consumption by vehicle type</div>
+
+          <p class="hm-body">
+            Not sure what to enter? Use these rough guides for
+            <strong>litres per 100&nbsp;km</strong>. Check your car's manual or trip
+            computer for a more accurate figure.
+          </p>
+
+          <div class="hm-efficiency">
+            <div class="hm-eff-row"><span class="hm-eff-type">Small cars &amp; Hatchbacks</span><span class="hm-eff-val">5.0 &ndash; 7.0</span></div>
+            <div class="hm-eff-row"><span class="hm-eff-type">Medium sedans</span><span class="hm-eff-val">5.0 &ndash; 8.0</span></div>
+            <div class="hm-eff-row"><span class="hm-eff-type">SUVs &amp; Crossovers</span><span class="hm-eff-val">8.0 &ndash; 11.0</span></div>
+            <div class="hm-eff-row"><span class="hm-eff-type">Dual-cab Utes &amp; 4WDs</span><span class="hm-eff-val">8.0 &ndash; 10.5</span></div>
+            <div class="hm-eff-row"><span class="hm-eff-type">Hybrids</span><span class="hm-eff-val">3.5 &ndash; 5.0</span></div>
+          </div>
+
+          <button class="hm-close" onclick="document.getElementById('efficiency-modal').style.display='none'">Got it &rsaquo;</button>
+        </div>
+      </div>
+
       <div class="fuel-discounts">
           <input type="checkbox" id="rac-member">RAC member
           <input type="checkbox" id="woolworths-rewards-program">Woolworths Rewards Program
       </div>
 
       <div class="inputs">
-        <label class="field-label" for="fuel-efficiency">Fuel Efficiency</label>
+        <label class="field-label" for="fuel-type">Fuel Type</label>
+        <select id="fuel-type">
+          <option value="91" selected>Unleaded 91</option>
+          <option value="95">Premium 95</option>
+          <option value="98">Premium 98</option>
+          <option value="DIESEL">Diesel</option>
+        </select>
+        <label class="field-label" for="fuel-efficiency">
+          Fuel Efficiency
+          <button type="button" class="field-help-btn" aria-label="Fuel efficiency guide"
+                  onclick="document.getElementById('efficiency-modal').style.display='flex'">?</button>
+        </label>
         <input type="number" step="0.1" placeholder="litres/100km — e.g. 10" id="fuel-efficiency">
         <label class="field-label" for="tank-capacity">Tank Capacity</label>
         <input type="number" step="1"   placeholder="litres — e.g. 60"      id="tank-capacity">

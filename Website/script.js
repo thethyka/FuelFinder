@@ -116,6 +116,31 @@ map.on('style.load', () => {
   map.setFog({});
 });
 
+// On load, recenter on the user's location *only if they've already shared it*
+// (permission already granted) — otherwise we stay on the default view and never
+// prompt unsolicited. The GeolocateControl below still lets them opt in manually.
+function centerOnUser() {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { longitude, latitude } = pos.coords;
+      map.jumpTo({ center: [longitude, latitude], zoom: 13 });
+    },
+    () => {}, // denied or unavailable — keep the default view
+    { enableHighAccuracy: true, maximumAge: 60000, timeout: 8000 }
+  );
+}
+
+if (navigator.geolocation) {
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((status) => {
+        if (status.state === 'granted') centerOnUser();
+      })
+      .catch(() => {}); // Permissions API unsupported — stay on default view
+  }
+}
+
 map.addControl(
   new mapboxgl.GeolocateControl({
     positionOptions: { enableHighAccuracy: true },
@@ -271,6 +296,7 @@ calculateButton.addEventListener('click', () => {
 
   const rac     = document.getElementById('rac-member').checked ? 0 : 1;
   const woolies = document.getElementById('woolworths-rewards-program').checked ? 0 : 1;
+  const fuel    = document.getElementById('fuel-type').value;
 
   const xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/servo', true);
@@ -282,6 +308,7 @@ calculateButton.addEventListener('click', () => {
     current_tank: currentTank,
     RAC:          rac,
     Woolies:      woolies,
+    fuel:         fuel,             // 91 | 95 | 98 | DIESEL
   }));
 
   xhr.onload = function () {
