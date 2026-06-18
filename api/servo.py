@@ -462,6 +462,101 @@ def cumulative_distances(path):
     return cum
 
 
+MAX_MULTI_STOPS = 5
+
+
+def find_multi_stop_chain(
+    path, stations, km_per_l, capacity_litres, current_litres,
+    has_rac, has_woolies, region, cum, trip_km,
+):
+    stops = []
+    fuel = current_litres
+    pos_km = 0.0
+
+    for _ in range(MAX_MULTI_STOPS):
+        usable_range = (fuel - RESERVE_L) * km_per_l
+        if pos_km + usable_range >= trip_km:
+            break
+
+        window_start = pos_km + usable_range / 2
+        window_end = pos_km + usable_range
+
+        best = None
+        best_cost = float("inf")
+        best_detour = float("inf")
+        best_dist_to = 0.0
+
+        for s in stations:
+            min_div = float("inf")
+            ins_i = None
+            d_to_at_ins = None
+            for i in range(len(path) - 1):
+                a, b = path[i], path[i + 1]
+                seg = haversine(a[0], a[1], b[0], b[1])
+                d_to = haversine(a[0], a[1], s["lat"], s["lon"])
+                d_from = haversine(s["lat"], s["lon"], b[0], b[1])
+                div = d_to + d_from - seg
+                if div < min_div:
+                    min_div = div
+                    ins_i = i
+                    d_to_at_ins = d_to
+
+            if min_div > MAX_DETOUR_KM:
+                continue
+
+            dist_to_station = cum[ins_i] + d_to_at_ins
+
+            if dist_to_station < window_start or dist_to_station > window_end:
+                continue
+
+            km_from_pos = dist_to_station - pos_km
+            if km_from_pos / km_per_l > fuel - RESERVE_L:
+                continue
+
+            discount = get_discount(region, s["brand"], has_rac, has_woolies)
+            price = s["price"] - discount
+            tank_at_station = fuel - km_from_pos / km_per_l
+            litres_to_buy = max(0.0, capacity_litres - tank_at_station)
+            detour_fuel = min_div / km_per_l
+            cost = (litres_to_buy + detour_fuel) * price
+
+            if cost < best_cost or (cost == best_cost and min_div < best_detour):
+                best_cost = cost
+                best_detour = min_div
+                best_dist_to = dist_to_station
+                best = {
+                    "address": s["address"],
+                    "brand": s["brand"],
+                    "price": s["price"],
+                    "effective_price": round(price, 1),
+                    "lat": s["lat"],
+                    "lon": s["lon"],
+                    "diversion_km": round(min_div, 2),
+                    "litres_to_buy": round(litres_to_buy, 1),
+                    "cost_cents": round(cost, 1),
+                }
+
+        if best is None:
+            return None
+
+        stops.append(best)
+        fuel = capacity_litres
+        pos_km = best_dist_to
+
+    if not stops:
+        return None
+
+    usable_range = (fuel - RESERVE_L) * km_per_l
+    if pos_km + usable_range < trip_km:
+        return None
+
+    return {
+        "status": "multi_stop",
+        "stations": stops,
+        "trip_km": round(trip_km, 1),
+    }
+
+
 def find_best_station(
     path,
     stations,
@@ -592,6 +687,12 @@ def find_best_station(
     # if some station was reachable but none could complete the trip on one
     # fill, the trip is longer than a single tank (multi-stop territory).
     if saw_reachable:
+        multi = find_multi_stop_chain(
+            path, nearby, km_per_l, capacity_litres, current_litres,
+            has_rac, has_woolies, region, cum, trip_km,
+        )
+        if multi is not None:
+            return multi
         return {"status": "too_far", "trip_km": round(trip_km, 1)}
     return {"status": "unreachable", "trip_km": round(trip_km, 1)}
 

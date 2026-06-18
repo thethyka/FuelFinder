@@ -163,15 +163,19 @@ const resetButton     = document.getElementById('btn2');
 //  - userRoutePoints : the pure origin→destination geometry. Updated ONLY from
 //                      route events fired while no fuel waypoint of ours exists.
 //                      This is the only thing ever sent to the API.
-//  - hasFuelStop     : whether our single fuel waypoint (index 0) is present.
-//  - pendingFuelStop : [lon, lat] queued to add once a removeWaypoint settles,
-//                      so the two async route requests never race.
-//  - stationMarker   : the pin for the chosen station.
+//  - fuelStopCount   : how many of our fuel waypoints are currently in the
+//                      route, occupying indices 0..count-1 in route order.
+//  - opQueue         : queued waypoint operations (add/remove). The Directions
+//                      plugin fires one async route request per waypoint change,
+//                      so we drain exactly one op per settled `route` event —
+//                      the requests are strictly sequenced and never race. This
+//                      generalises the old single-slot replace logic to N stops.
+//  - stationMarkers  : the pins for the chosen station(s).
 // ---------------------------------------------------------------------------
 let userRoutePoints = [];
-let hasFuelStop     = false;
-let pendingFuelStop = null;
-let stationMarker   = null;
+let fuelStopCount   = 0;
+let opQueue         = [];
+let stationMarkers  = [];
 
 function extractPoints(event) {
   const pts = [];
@@ -185,33 +189,47 @@ function extractPoints(event) {
   return pts;
 }
 
-function clearMarker() {
-  if (stationMarker) { stationMarker.remove(); stationMarker = null; }
+function clearMarkers() {
+  for (const m of stationMarkers) m.remove();
+  stationMarkers = [];
 }
 
-// Remove our fuel stop + marker and return to the plain A→B route.
-function clearFuelStop() {
-  pendingFuelStop = null;
-  clearMarker();
-  if (hasFuelStop) {
-    hasFuelStop = false;
-    direction.removeWaypoint(0); // route event recaptures the base route
+// Execute one queued waypoint op. Each op fires an async route request; the
+// `route` handler calls pump() again to run the next, so they never overlap.
+function pump() {
+  if (opQueue.length) opQueue.shift()();
+}
+
+// Replace whatever fuel waypoints are currently present with `coordsList`
+// ([lon, lat] in route order). Removals drain first, then the new adds, one per
+// settled route event. An empty list just clears all our waypoints.
+function applyFuelStops(coordsList) {
+  opQueue = [];
+  for (let i = 0; i < fuelStopCount; i++) {
+    opQueue.push(() => { direction.removeWaypoint(0); fuelStopCount--; });
   }
+  for (const [lon, lat] of coordsList) {
+    opQueue.push(() => { direction.addWaypoint(fuelStopCount, [lon, lat]); fuelStopCount++; });
+  }
+  pump();
+}
+
+// Remove our fuel stops + markers and return to the plain A→B route.
+function clearFuelStop() {
+  clearMarkers();
+  applyFuelStops([]);
 }
 
 direction.on('route', (event) => {
-  // A removeWaypoint just settled and a replacement stop is queued; add it now,
-  // after the route is back to A→B, so requests are strictly sequenced.
-  if (pendingFuelStop) {
-    const [lon, lat] = pendingFuelStop;
-    pendingFuelStop  = null;
-    hasFuelStop      = true;
-    direction.addWaypoint(0, [lon, lat]);
-    return; // button stays disabled until addWaypoint settles (next route event)
+  // A waypoint op just settled; run the next queued one so the two async route
+  // requests never race. Button stays disabled until the queue drains.
+  if (opQueue.length) {
+    pump();
+    return;
   }
 
   // Only a pure origin→destination route updates the base geometry.
-  if (!hasFuelStop) {
+  if (fuelStopCount === 0) {
     userRoutePoints = extractPoints(event);
   }
 
@@ -245,17 +263,19 @@ function onEndpointChange() {
 direction.on('origin',      onEndpointChange);
 direction.on('destination', onEndpointChange);
 
-// Place (or replace) the single fuel waypoint at index 0 without racing.
-function setFuelStop(lon, lat) {
-  if (hasFuelStop) {
-    // Remove the old one first; the queued add fires on the next route event.
-    hasFuelStop     = false;
-    pendingFuelStop = [lon, lat];
-    direction.removeWaypoint(0);
-  } else {
-    hasFuelStop = true;
-    direction.addWaypoint(0, [lon, lat]);
-  }
+// Drop a station pin with an open popup. `label` prefixes the title for
+// multi-stop chains (e.g. "Stop 1") and is omitted for a single stop.
+function placeStationMarker(st, costStr, label) {
+  const title = label ? `${label}: ${st.brand}, ${st.address}` : `${st.brand}, ${st.address}`;
+  const marker = new mapboxgl.Marker({ color: '#88eeff' })
+    .setLngLat([st.lon, st.lat])
+    .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+      `<strong style="font-size:13px;color:#111">${title}</strong><br>` +
+      `<span style="color:#444;font-size:12px">${costStr} est. &nbsp;·&nbsp; ${st.diversion_km} km detour</span>`
+    ))
+    .addTo(map);
+  marker.getPopup().addTo(map);
+  stationMarkers.push(marker);
 }
 
 calculateButton.addEventListener('click', () => {
@@ -321,17 +341,22 @@ calculateButton.addEventListener('click', () => {
         const costMin = (st.cost_cents_min / 100).toFixed(2);
         const costMax = (st.cost_cents_max / 100).toFixed(2);
         const costStr = costMin === costMax ? `~$${costMin}` : `~$${costMin} – $${costMax}`;
-        clearMarker();
-        stationMarker = new mapboxgl.Marker({ color: '#88eeff' })
-          .setLngLat([st.lon, st.lat])
-          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
-            `<strong style="font-size:13px;color:#111">${st.brand}, ${st.address}</strong><br>` +
-            `<span style="color:#444;font-size:12px">${costStr} est. &nbsp;·&nbsp; ${st.diversion_km} km detour</span>`
-          ))
-          .addTo(map);
-        stationMarker.getPopup().addTo(map);
+        clearMarkers();
+        placeStationMarker(st, costStr);
         // Button re-enables once the waypoint settles (next route event).
-        setFuelStop(st.lon, st.lat);
+        applyFuelStops([[st.lon, st.lat]]);
+        break;
+      }
+
+      case 'multi_stop': {
+        const stops = data.stations || [];
+        clearMarkers();
+        stops.forEach((st, i) => {
+          const costStr = `~$${(st.cost_cents / 100).toFixed(2)}`;
+          placeStationMarker(st, costStr, `Stop ${i + 1}`);
+        });
+        // Button re-enables once the last waypoint settles (final route event).
+        applyFuelStops(stops.map((st) => [st.lon, st.lat]));
         break;
       }
 
@@ -342,7 +367,7 @@ calculateButton.addEventListener('click', () => {
 
       case 'too_far':
         clearFuelStop();
-        flash(calculateButton, 'Too far for one tank');
+        flash(calculateButton, 'Too far, even with multiple stops');
         break;
 
       case 'unreachable':
@@ -368,14 +393,32 @@ calculateButton.addEventListener('click', () => {
 resetButton.addEventListener('click', clearFuelStop);
 
 function updateDiscountUI(region) {
-  const panel = document.getElementById('fuel-discounts');
-  const racLabel = document.getElementById('rac-label');
+  const racRow    = document.getElementById('rac-row');
+  const racCheck  = document.getElementById('rac-member');
+  const racLabel  = document.getElementById('rac-label');
+  const woolRow   = document.getElementById('woolies-row');
+  const woolCheck = document.getElementById('woolworths-rewards-program');
+
   if (!region) {
-    panel.style.display = 'none';
+    racRow.style.display  = 'none';
+    woolRow.style.display = 'none';
+    racCheck.checked  = false;
+    woolCheck.checked = false;
     return;
   }
-  panel.style.display = '';
-  racLabel.textContent = region === 'VIC' ? 'RACV member' : 'RAC member';
+
+  const discounts = {
+    WA:  { rac: true, racLabel: 'RAC member',  woolies: true },
+    VIC: { rac: true, racLabel: 'RACV member', woolies: true },
+  };
+  const d = discounts[region] || {};
+
+  racRow.style.display  = d.rac     ? '' : 'none';
+  woolRow.style.display = d.woolies ? '' : 'none';
+  racLabel.textContent  = d.racLabel || 'RAC/RACV member';
+
+  if (!d.rac)     racCheck.checked  = false;
+  if (!d.woolies) woolCheck.checked = false;
 }
 
 function flash(btn, msg) {

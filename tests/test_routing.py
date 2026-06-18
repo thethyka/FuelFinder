@@ -134,3 +134,171 @@ def test_no_route_too_few_points():
         [MELBOURNE_CBD], [], 10.0, 50.0, 2.0, False, False
     )
     assert result["status"] == "no_route"
+
+
+# -- multi-stop ---------------------------------------------------------------
+
+# At latitude -37°, 1° longitude ≈ 88.9 km.
+# This path spans ~1000 km east-west at constant latitude.
+LONG_ROUTE = [[-37.0, 144.0 + i] for i in range(12)] + [[-37.0, 155.25]]
+
+
+def test_multi_stop_two_stations_on_long_route():
+    """1000 km trip, 50L tank at 10L/100km = 470 km usable range → needs 2 stops."""
+    stations = [
+        make_station(-37.0, 147.37, 170.0, brand="StopA"),  # ~300 km
+        make_station(-37.0, 151.87, 165.0, brand="StopB"),  # ~700 km
+    ]
+    result = find_best_station(
+        LONG_ROUTE, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=50.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    assert result["status"] == "multi_stop"
+    assert len(result["stations"]) == 2
+    assert result["stations"][0]["brand"] == "StopA"
+    assert result["stations"][1]["brand"] == "StopB"
+
+
+def test_multi_stop_fuel_math_across_legs():
+    """Litres-to-buy reflects fuel burned on each leg, not just the first."""
+    stations = [
+        make_station(-37.0, 147.37, 170.0, brand="StopA"),  # ~300 km
+        make_station(-37.0, 151.87, 170.0, brand="StopB"),  # ~700 km
+    ]
+    result = find_best_station(
+        LONG_ROUTE, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=50.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    assert result["status"] == "multi_stop"
+    s0, s1 = result["stations"]
+    # Leg 1: 50L start, ~300 km at 10L/100km burns ~30L, arrive ~20L, buy ~30L
+    assert 25 < s0["litres_to_buy"] < 35
+    # Leg 2: 50L after fill, ~400 km burns ~40L, arrive ~10L, buy ~40L
+    assert 35 < s1["litres_to_buy"] < 45
+
+
+def test_multi_stop_back_half_heuristic():
+    """A cheaper station in the front half is skipped for one in the back half."""
+    stations = [
+        make_station(-37.0, 145.5, 140.0, brand="CheapEarly"),  # ~133 km (front half)
+        make_station(-37.0, 147.37, 170.0, brand="BackHalf"),    # ~300 km (back half)
+        make_station(-37.0, 151.87, 170.0, brand="StopB"),       # ~700 km
+    ]
+    result = find_best_station(
+        LONG_ROUTE, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=50.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    assert result["status"] == "multi_stop"
+    assert result["stations"][0]["brand"] == "BackHalf"
+
+
+def test_multi_stop_cheapest_in_back_half():
+    """Among stations in the back half, the cheapest wins."""
+    stations = [
+        make_station(-37.0, 147.37, 190.0, brand="Expensive"),  # ~300 km
+        make_station(-37.0, 147.80, 150.0, brand="Cheap"),      # ~338 km (also back half)
+        make_station(-37.0, 151.87, 170.0, brand="StopB"),      # ~700 km
+    ]
+    result = find_best_station(
+        LONG_ROUTE, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=50.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    assert result["status"] == "multi_stop"
+    assert result["stations"][0]["brand"] == "Cheap"
+
+
+def test_multi_stop_gap_in_coverage_returns_too_far():
+    """If no station exists in a critical window, multi-stop fails to too_far."""
+    # Only one station at ~300 km — nothing reachable for the second leg
+    stations = [
+        make_station(-37.0, 147.37, 170.0, brand="OnlyStop"),
+    ]
+    result = find_best_station(
+        LONG_ROUTE, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=50.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    assert result["status"] == "too_far"
+
+
+def test_multi_stop_hard_cap_at_five():
+    """A route needing 6 stops exceeds the cap and returns too_far."""
+    # ~3500 km route. 50L at 10L/100km = 470 km usable per fill → needs ~7 stops.
+    huge_route = [[-37.0, 110.0 + i] for i in range(40)] + [[-37.0, 149.5]]
+    # Place a station every ~400 km (back-half sweet spot)
+    stations = [
+        make_station(-37.0, 113.5, 170.0, brand="S1"),
+        make_station(-37.0, 118.0, 170.0, brand="S2"),
+        make_station(-37.0, 122.5, 170.0, brand="S3"),
+        make_station(-37.0, 127.0, 170.0, brand="S4"),
+        make_station(-37.0, 131.5, 170.0, brand="S5"),
+        make_station(-37.0, 136.0, 170.0, brand="S6"),
+        make_station(-37.0, 140.5, 170.0, brand="S7"),
+        make_station(-37.0, 145.0, 170.0, brand="S8"),
+    ]
+    result = find_best_station(
+        huge_route, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=50.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    assert result["status"] == "too_far"
+
+
+def test_multi_stop_detour_cap_respected():
+    """Stations beyond MAX_DETOUR_KM are skipped even in multi-stop."""
+    stations = [
+        make_station(-37.0, 147.37, 170.0, brand="OnRoute"),     # ~300 km, on route
+        make_station(-37.1, 151.87, 150.0, brand="FarOff"),      # ~700 km, ~11 km off route
+    ]
+    result = find_best_station(
+        LONG_ROUTE, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=50.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    # FarOff is too far from the route — chain can't be completed
+    assert result["status"] == "too_far"
+
+
+def test_single_stop_still_returns_ok():
+    """A trip needing one stop uses the single-stop path, not multi-stop."""
+    # ~400 km route, 50L tank at 10L/100km, start with 10L → needs a stop
+    # but one fill (50L) covers remaining ~300 km easily
+    medium_route = [[-37.0, 144.0 + i] for i in range(5)] + [[-37.0, 148.5]]
+    stations = [
+        make_station(-37.0, 145.5, 170.0, brand="MidRoute"),
+    ]
+    result = find_best_station(
+        medium_route, stations,
+        efficiency_l_per_100km=10.0,
+        capacity_litres=50.0,
+        current_litres=20.0,
+        has_rac=False,
+        has_woolies=False,
+    )
+    assert result["status"] == "ok"
+    assert result["station"]["brand"] == "MidRoute"

@@ -38,9 +38,10 @@ km_per_l = 100 / efficiency_l_per_100km
 
 | Name | Value | Meaning |
 |------|-------|---------|
-| `RESERVE_L` | `5.0 L` | Safety reserve. We never *plan* to drop below this. |
+| `RESERVE_L` | `3.0 L` | Safety reserve. We never *plan* to drop below this. |
 | `MAX_DETOUR_KM` | `5.0 km` | A candidate station may add at most this much extra driving. |
 | `BBOX_PAD_DEG` | `0.1°` | Lat/lon padding for the station pre-filter bounding box. |
+| `MAX_MULTI_STOPS` | `5` | A multi-stop chain may contain at most this many refuels (§6). |
 
 ---
 
@@ -135,7 +136,8 @@ The API returns one of these statuses:
 |----------|------|--------------------|
 | `no_stop_needed` | §3 says the tank reaches the destination with reserve. | Plain A→B route, no marker. Show "No stop needed — arrive with ~`X` L". |
 | `ok` | A station passed all gates. | Insert exactly one fuel waypoint at the station, drop a marker with brand / cost / detour. |
-| `too_far` | A stop is required but **no** reachable station can complete the trip on one full tank. | No waypoint. Show "This trip is longer than one tank — multi-stop coming soon" (§6). |
+| `multi_stop` | A single tank can't span the trip, but a chain of ≤ `MAX_MULTI_STOPS` refuels can (§6). | Insert one fuel waypoint per stop, in route order, and drop a numbered marker at each. |
+| `too_far` | A stop is required and **no** chain of ≤ `MAX_MULTI_STOPS` reachable stations can complete the trip. | No waypoint. Show "Too far, even with multiple stops". |
 | `unreachable` | A stop is required, the trip *is* within one tank, but no station is within reach + detour limits. | No waypoint. Show "No suitable station found near this route". |
 
 ### 5.1 `ok` payload
@@ -163,24 +165,70 @@ The API returns one of these statuses:
 > `[address, diversion, cost, [lat, lon]]`. The frontend in this repo is updated
 > to the object form above. Any other consumer must migrate.
 
+### 5.2 `multi_stop` payload
+
+```jsonc
+{
+  "status": "multi_stop",
+  "stations": [
+    {
+      "address": "...", "brand": "...", "price": 189.9,
+      "effective_price": 185.9, "lat": -31.9, "lon": 115.8,
+      "diversion_km": 1.2, "litres_to_buy": 48.0, "cost_cents": 8920.0
+    }
+    // ...one object per stop, in route order (origin → destination)
+  ],
+  "trip_km": 1010.0
+}
+```
+
+Each stop fills to capacity, so it reports a single `cost_cents` (not the
+`min`/`max` range a single stop uses, which exists because a lone stop may buy
+less than a full tank).
+
 ---
 
-## 6. Out of scope (documented next phase): multi-stop
+## 6. Multi-stop: when one tank can't span the trip
 
-When a single full tank cannot span the trip (`too_far`), the trip needs a **chain**
-of refuels. The intended future algorithm:
+When no single full tank can complete the trip, the single-stop search of §4
+yields no winner but *does* see reachable stations. Rather than return `too_far`
+immediately, we attempt a **greedy forward-walk** chain of refuels. This runs
+only as a fallback — §3 and §4 are untouched, so trips solvable with zero or one
+stop never reach this code.
 
-1. Walk the route from the origin.
-2. At each point where the projected tank would fall to `RESERVE_L`, search for
-   the cheapest station within `MAX_DETOUR_KM` of the *reachable* window before
-   that point.
-3. Refuel (to `capacity_litres`), continue, repeat until the destination is
-   within range.
-4. Return an ordered list of stops; the frontend inserts them as ordered
-   waypoints.
+### 6.1 The forward walk
 
-Until then, `too_far` is surfaced honestly rather than silently picking one
-inadequate station.
+Track `pos_km` (distance along the route of the last stop, or `0` at the origin)
+and `fuel` (litres in the tank at that point; `current_litres` at the origin).
+Repeat, up to `MAX_MULTI_STOPS` times:
+
+1. **Done?** `usable_range = (fuel − RESERVE_L) × km_per_l`. If
+   `pos_km + usable_range ≥ trip_km`, the destination is in range — stop.
+2. **Search window — the back half.** Only consider stations whose
+   `dist_to_station` (cumulative route distance, §4.2b) falls in
+   `[pos_km + usable_range/2, pos_km + usable_range]`. Searching the *back* half
+   of the reachable range avoids stopping too early and needing an extra stop.
+3. **Gates.** A candidate must pass the detour cap (`detour_km ≤ MAX_DETOUR_KM`)
+   and be reachable from the current position
+   (`(dist_to_station − pos_km) / km_per_l ≤ fuel − RESERVE_L`).
+4. **Pick.** Among survivors, choose the lowest `cost_cents`, ties broken by
+   smaller `detour_km`. Cost is `(litres_to_fill + detour_fuel) × effective_price`,
+   where a stop always fills to `capacity_litres`.
+5. **Advance.** Append the stop, set `fuel = capacity_litres`,
+   `pos_km = dist_to_station`, and loop.
+
+### 6.2 Outcomes
+
+- If the loop ends with the destination in range, return `multi_stop` (§5.2).
+- If any iteration finds **no** candidate in its window, or the cap is hit before
+  the destination is in range, the chain fails and the API returns `too_far`.
+  `too_far` now means "not even a multi-stop chain works", surfaced honestly
+  rather than picking inadequate stops.
+
+> The walk is greedy, not globally cost-optimal: it minimises stops first
+> (back-half heuristic) and picks the cheapest station within each window
+> independently. A globally cheapest chain — e.g. buying partial fills to exploit
+> a cheaper station later — is intentionally out of scope.
 
 ---
 
@@ -193,11 +241,14 @@ locations."*
    pure origin→destination geometry. It is updated **only** from `route` events
    fired while **no** fuel waypoint of ours is present. It is the only thing ever
    sent to the API.
-2. **At most one fuel waypoint**, always inserted at waypoint index `0` (the
-   first intermediate waypoint). Never hardcode other indices.
-3. **Replacing a stop** (recalculate while a stop exists) removes the old
-   waypoint first, then adds the new one on the next settled `route` event — so
-   the two async route requests never race.
+2. **Our fuel waypoints occupy indices `0..n-1`** in route order (one for a
+   single stop, several for a `multi_stop` chain). Adds append in order; removes
+   always pull index `0` until none remain.
+3. **One waypoint op per settled `route` event.** The Directions plugin fires an
+   async route request per `addWaypoint`/`removeWaypoint`, so ops are queued and
+   drained one at a time — the requests are strictly sequenced and never race.
+   Replacing the current stops (recalculate) enqueues all removals first, then
+   the new adds.
 4. **Invalidate on edit.** If the user changes the origin or destination (Mapbox
    `origin` / `destination` events), immediately remove our fuel waypoint and
    marker and clear any queued stop. The next route the user draws is captured
@@ -215,5 +266,6 @@ locations."*
 |----------|--------------------------|------|----------|
 | Short hop, plenty of fuel | 40 L / 60 / 8 L/100km | 60 km | `no_stop_needed` (arrive ~32.5 L). |
 | Commute, would dip below reserve | 8 L / 60 / 8 L/100km | 120 km | Stop required; pick cheapest reachable station that completes the trip. |
-| Cross-country | 10 L / 50 / 9 L/100km | 900 km | `too_far` — one full 50 L tank (~555 km) can't span it. |
+| Cross-country, stations en route | 10 L / 50 / 9 L/100km | 900 km | `multi_stop` — one full 50 L tank (~555 km) can't span it, but a chain of refuels can. |
+| Cross-country, sparse coverage | 10 L / 50 / 9 L/100km | 900 km | `too_far` if a refuel window has no reachable station, or the chain would exceed `MAX_MULTI_STOPS`. |
 | Stop needed but remote highway | 6 L / 60 / 9 L/100km | 140 km | `unreachable` if no station within 5 km of the route. |
