@@ -15,4 +15,7 @@ __pycache__/
 # Archives / old team folders (local only)
 _archive/
 
+venv/
+
 .vercel
+.claude

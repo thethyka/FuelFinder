@@ -30,10 +30,10 @@
 
           <p class="hm-body">
             FuelFinder finds the cheapest fuel stop along your drive, ranked by
-            <strong>true total cost</strong> rather than sticker price. It pulls live
-            <strong>Western Australia</strong> prices from the official FuelWatch feed, then
-            models the fuel burned reaching each station and the detour distance to recommend
-            the single stop that minimises your trip cost.
+            <strong>true total cost</strong> rather than sticker price. It pulls live prices
+            from official government feeds in <strong>Western Australia</strong> and
+            <strong>Victoria</strong>, then models the fuel burned reaching each station and
+            the detour distance to recommend the single stop that minimises your trip cost.
           </p>
 
           <div class="hm-section-label">How to use</div>
@@ -46,16 +46,19 @@
 
           <div class="hm-section-label">Loyalty discounts</div>
           <div class="hm-discounts">
-            <div class="hm-discount-row"><span class="hm-tag">RAC</span> &minus;4&cent;/L at Puma, Caltex, Better Choice</div>
-            <div class="hm-discount-row"><span class="hm-tag">Woolworths</span> &minus;4&cent;/L at Ampol, EG Ampol, Caltex Woolworths</div>
+            <div class="hm-discount-row"><span class="hm-tag">WA</span> RAC &minus;4&cent;/L at Puma, Caltex, Better Choice</div>
+            <div class="hm-discount-row"><span class="hm-tag">VIC</span> RACV &minus;5&cent;/L at EG Ampol</div>
+            <div class="hm-discount-row"><span class="hm-tag">Woolworths</span> &minus;4&cent;/L at Ampol, EG Ampol</div>
           </div>
 
-          <div class="hm-section-label">Data source</div>
+          <div class="hm-section-label">Data sources</div>
           <p class="hm-attribution">
-            Fuel prices are sourced from
+            WA prices from
             <a href="https://www.fuelwatch.wa.gov.au" target="_blank" rel="noopener">FuelWatch</a>
-            (&copy; Government of Western Australia). Coverage is currently
-            Western Australia only.
+            (&copy; Government of Western Australia).
+            VIC prices from the
+            <a href="https://www.service.vic.gov.au" target="_blank" rel="noopener">Fair Fuel</a>
+            Open Data API (&copy; Service Victoria, ~24h delay).
           </p>
 
           <div class="hm-chips">
@@ -63,6 +66,7 @@
             <span class="hm-chip">Vercel Serverless</span>
             <span class="hm-chip">Mapbox GL JS</span>
             <span class="hm-chip">FuelWatch (WA)</span>
+            <span class="hm-chip">Fair Fuel (VIC)</span>
           </div>
 
           <button class="hm-close" onclick="document.getElementById('help-modal').style.display='none'">Start navigating &rsaquo;</button>
@@ -94,9 +98,9 @@
       </div>
 
       <div class="controls">
-      <div class="fuel-discounts">
-          <input type="checkbox" id="rac-member">RAC member
-          <input type="checkbox" id="woolworths-rewards-program">Woolworths Rewards Program
+      <div class="fuel-discounts" id="fuel-discounts" style="display:none">
+          <label><input type="checkbox" id="rac-member"><span id="rac-label">RAC member</span></label>
+          <label><input type="checkbox" id="woolworths-rewards-program">Woolworths Rewards</label>
       </div>
 
       <div class="inputs">

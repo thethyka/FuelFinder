@@ -32,10 +32,10 @@ def route_bbox(path, pad=0.0):
 # This table is the single source of truth mapping our canonical keys to both.
 # Keys here are what the frontend sends as ``fuel``; "91" is the default.
 FUEL_TYPES = {
-    "91": {"label": "Unleaded 91", "fw_product": 1, "ps_key": "U91"},
-    "95": {"label": "Premium 95", "fw_product": 2, "ps_key": "U95"},
-    "98": {"label": "Premium 98", "fw_product": 6, "ps_key": "U98"},
-    "DIESEL": {"label": "Diesel", "fw_product": 4, "ps_key": "DIESEL"},
+    "91": {"label": "Unleaded 91", "fw_product": 1, "ps_key": "U91", "vic_key": "U91"},
+    "95": {"label": "Premium 95", "fw_product": 2, "ps_key": "U95", "vic_key": "P95"},
+    "98": {"label": "Premium 98", "fw_product": 6, "ps_key": "U98", "vic_key": "P98"},
+    "DIESEL": {"label": "Diesel", "fw_product": 4, "ps_key": "DIESEL", "vic_key": "DSL"},
 }
 DEFAULT_FUEL = "91"
 
@@ -291,51 +291,164 @@ def fetch_stations_petrolspy(bbox, fuel=DEFAULT_FUEL, path=None):
 fetch_stations_vic = fetch_stations_petrolspy
 
 
-# Longitude of the WA/SA border (~129E). West of it we use the official WA
-# FuelWatch feed; everywhere else in Australia uses PetrolSpy.
-WA_BORDER_LON = 129.0
+# --- VIC: Fair Fuel Open Data API (government, 24h delay) -------------------
 
-# WA-only launch: only the official WA FuelWatch feed is licensed for reuse.
-# The PetrolSpy nationwide path is kept in this module but disabled — its terms
-# prohibit automated access, so we don't ship it. Flip to False to re-enable
-# nationwide coverage once a licensed non-WA source (e.g. VIC Servo Saver,
-# NSW FuelCheck) is wired in.
-WA_ONLY = True
+import time
+import uuid
+import os
+
+VIC_API_BASE = "https://api.fuel.service.vic.gov.au/open-data/v1"
+VIC_CONSUMER_ID = os.environ.get("VIC_FUEL_API_KEY", "")
+VIC_CACHE_TTL = 21600  # 6 hours — data has a 24h delay, no point re-fetching sooner
+
+_vic_cache = {"prices": None, "brands": None, "ts": 0}
+
+
+def _fetch_vic_json(url, consumer_id):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "FuelFinder/1.0",
+            "x-consumer-id": consumer_id,
+            "x-transactionid": str(uuid.uuid4()),
+        },
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read())
+
+
+def _refresh_vic_cache():
+    if not VIC_CONSUMER_ID:
+        return
+    now = time.time()
+    if _vic_cache["prices"] and (now - _vic_cache["ts"]) < VIC_CACHE_TTL:
+        return
+    _vic_cache["prices"] = _fetch_vic_json(
+        f"{VIC_API_BASE}/fuel/prices", VIC_CONSUMER_ID
+    )
+    _vic_cache["brands"] = _fetch_vic_json(
+        f"{VIC_API_BASE}/fuel/reference-data/brands", VIC_CONSUMER_ID
+    )
+    _vic_cache["ts"] = now
+
+
+def _vic_brands_map():
+    brands_data = _vic_cache.get("brands") or {}
+    return {b["id"]: b["name"] for b in brands_data.get("brands", [])}
+
+
+def fetch_stations_vic_cached(fuel=DEFAULT_FUEL):
+    _refresh_vic_cache()
+    prices = _vic_cache.get("prices")
+    if not prices:
+        return []
+    return parse_vic_stations(prices, _vic_brands_map(), fuel)
+
+
+def parse_vic_stations(data, brands_map, fuel=DEFAULT_FUEL):
+    """Turn a VIC API /fuel/prices response into our standard station dicts.
+
+    ``brands_map`` is a dict of brandId -> brand name (from /reference-data/brands).
+    Only stations with a valid location and an available price for the requested
+    fuel type are included.
+    """
+    vic_key = FUEL_TYPES[_normalise_fuel(fuel)]["vic_key"]
+    stations = []
+    for detail in data.get("fuelPriceDetails", []):
+        fs = detail.get("fuelStation", {})
+        loc = fs.get("location") or {}
+        lat = loc.get("latitude")
+        lon = loc.get("longitude")
+        if lat is None or lon is None:
+            continue
+
+        price = None
+        for fp in detail.get("fuelPrices", []):
+            if fp.get("fuelType") == vic_key and fp.get("isAvailable") and fp.get("price"):
+                price = float(fp["price"])
+                break
+        if price is None:
+            continue
+
+        brand_id = fs.get("brandId", "")
+        stations.append({
+            "lat": float(lat),
+            "lon": float(lon),
+            "price": price,
+            "brand": brands_map.get(brand_id, fs.get("name", "Unknown")),
+            "address": fs.get("address", ""),
+        })
+    return stations
+
+
+STATE_BOXES = {
+    "WA":  (-35.5, -13.5, 112.5, 129.0),
+    "VIC": (-39.5, -34.0, 140.9, 150.2),
+}
+COVERED_REGIONS = set(STATE_BOXES.keys())
+
+
+def detect_state(lat, lon):
+    for state, (lat_min, lat_max, lon_min, lon_max) in STATE_BOXES.items():
+        if lat_min <= lat <= lat_max and lon_min <= lon <= lon_max:
+            return state if state in COVERED_REGIONS else None
+    return None
 
 
 def get_stations(path, region=None, fuel=DEFAULT_FUEL):
     """Fetch live stations for a route from a licensed source.
 
-    Currently WA-only (``WA_ONLY``): only the official WA FuelWatch feed is used.
-    Routes outside WA return ``None``, which the handler reports as
-    ``out_of_coverage``.
-
-    ``region`` is case-insensitive. When omitted it is inferred from the route's
-    longitude (west of the WA border = WA).
+    ``region`` is case-insensitive. When omitted it is inferred from the
+    route midpoint via ``detect_state``. Routes outside covered regions
+    return ``None``, which the handler reports as ``out_of_coverage``.
     ``fuel`` is a canonical key from ``FUEL_TYPES`` (defaults to ULP).
     """
     bbox = route_bbox(path, BBOX_PAD_DEG) if path else None
 
     if region:
         region = region.upper()
-    elif bbox is not None:
-        mid_lon = (bbox[2] + bbox[3]) / 2
-        region = "WA" if mid_lon < WA_BORDER_LON else "AU"
+    elif path:
+        mid = path[len(path) // 2]
+        region = detect_state(mid[0], mid[1])
     else:
-        region = "WA"
+        region = None
 
     if region == "WA":
         return fetch_stations_wa(bbox, fuel)
-    if WA_ONLY:
-        return None
-    return fetch_stations_petrolspy(bbox, fuel, path)
+    if region == "VIC":
+        return fetch_stations_vic_cached(fuel)
+    if os.environ.get("PETROLSPY_ENABLED"):
+        return fetch_stations_petrolspy(bbox, fuel, path)
+    return None
 
 
-RAC_BRANDS = {"Puma", "Caltex", "Better Choice"}
-WOOLIES_BRANDS = {"Ampol", "EG Ampol", "Caltex", "Caltex Woolworths"}
+DISCOUNTS = {
+    "WA": {
+        "auto_club": {"cents": 4, "brands": {"Puma", "Caltex", "Better Choice"}},
+        "woolies": {"cents": 4, "brands": {"Ampol", "EG Ampol", "Caltex", "Caltex Woolworths"}},
+    },
+    "VIC": {
+        "auto_club": {"cents": 5, "brands": {"EG Ampol"}},
+        "woolies": {"cents": 4, "brands": {"EG Ampol", "Ampol"}},
+    },
+}
+
+
+def get_discount(region, brand, has_auto_club=False, has_woolies=False):
+    region_discounts = DISCOUNTS.get(region, {})
+    best = 0
+    if has_auto_club:
+        ac = region_discounts.get("auto_club", {})
+        if brand in ac.get("brands", set()):
+            best = max(best, ac["cents"])
+    if has_woolies:
+        w = region_discounts.get("woolies", {})
+        if brand in w.get("brands", set()):
+            best = max(best, w["cents"])
+    return best
 
 # See ROUTING_SPEC.md §2 for the meaning of these constants.
-RESERVE_L = 5.0  # never plan to drop below this many litres
+RESERVE_L = 3.0  # never plan to drop below this many litres
 MAX_DETOUR_KM = 5.0  # a station may add at most this much extra driving
 BBOX_PAD_DEG = 0.1  # lat/lon padding for the station pre-filter
 
@@ -357,6 +470,7 @@ def find_best_station(
     current_litres,
     has_rac,
     has_woolies,
+    region=None,
 ):
     """Decide whether a fuel stop is needed and, if so, pick the best station.
 
@@ -406,11 +520,8 @@ def find_best_station(
     best_detour = float("inf")
 
     for s in nearby:
-        price = s["price"]
-        if has_rac and s["brand"] in RAC_BRANDS:
-            price -= 4
-        if has_woolies and s["brand"] in WOOLIES_BRANDS:
-            price -= 4
+        discount = get_discount(region, s["brand"], has_rac, has_woolies)
+        price = s["price"] - discount
 
         # §4.2b: route segment with the smallest detour for this station.
         min_div = float("inf")
@@ -432,8 +543,8 @@ def find_best_station(
             continue  # absurdly out of the way
 
         dist_to_station = cum[ins_i] + d_to_at_ins
-        if dist_to_station / km_per_l > current_litres:
-            continue  # would run dry before reaching it
+        if dist_to_station / km_per_l > current_litres - RESERVE_L:
+            continue  # would hit reserve before reaching it
 
         saw_reachable = True
 
@@ -441,14 +552,19 @@ def find_best_station(
         if dist_station_to_dest / km_per_l > capacity_litres - RESERVE_L:
             continue  # a full tank can't complete the trip from here
 
-        # §4.2d cost — a stop fills the tank to capacity.
+        # §4.2d cost — range from "just enough" to "fill to capacity".
         tank_at_station = current_litres - dist_to_station / km_per_l
-        litres_to_buy = max(0.0, capacity_litres - tank_at_station)
         detour_fuel_l = min_div / km_per_l
-        cost = (litres_to_buy + detour_fuel_l) * price
 
-        if cost < best_cost or (cost == best_cost and min_div < best_detour):
-            best_cost = cost
+        fuel_needed = dist_station_to_dest / km_per_l + RESERVE_L
+        litres_min = max(0.0, fuel_needed - tank_at_station)
+        litres_max = max(0.0, capacity_litres - tank_at_station)
+
+        cost_min = (litres_min + detour_fuel_l) * price
+        cost_max = (litres_max + detour_fuel_l) * price
+
+        if cost_min < best_cost or (cost_min == best_cost and min_div < best_detour):
+            best_cost = cost_min
             best_detour = min_div
             best = {
                 "address": s["address"],
@@ -458,8 +574,10 @@ def find_best_station(
                 "lat": s["lat"],
                 "lon": s["lon"],
                 "diversion_km": round(min_div, 2),
-                "litres_to_buy": round(litres_to_buy, 1),
-                "cost_cents": round(cost, 1),
+                "litres_to_buy_min": round(litres_min, 1),
+                "litres_to_buy_max": round(litres_max, 1),
+                "cost_cents_min": round(cost_min, 1),
+                "cost_cents_max": round(cost_max, 1),
             }
 
     if best is not None:
@@ -501,8 +619,12 @@ class handler(BaseHTTPRequestHandler):
             fuel = body.get("fuel", DEFAULT_FUEL)  # canonical key, defaults to ULP
 
             stations = get_stations(path, region, fuel)
+
+            if not region and path:
+                mid = path[len(path) // 2]
+                region = detect_state(mid[0], mid[1])
+
             if stations is None:
-                # Route lies outside our licensed coverage (WA-only for now).
                 self._json(200, {"status": "out_of_coverage"})
                 return
             result = find_best_station(
@@ -513,9 +635,10 @@ class handler(BaseHTTPRequestHandler):
                 current_litres,
                 has_rac,
                 has_woolies,
+                region=region,
             )
+            result["region"] = region
 
-            # See ROUTING_SPEC.md §5 — the frontend switches on result["status"].
             self._json(200, result)
 
         except (KeyError, ValueError) as e:

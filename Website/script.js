@@ -131,14 +131,7 @@ function centerOnUser() {
 }
 
 if (navigator.geolocation) {
-  if (navigator.permissions && navigator.permissions.query) {
-    navigator.permissions
-      .query({ name: 'geolocation' })
-      .then((status) => {
-        if (status.state === 'granted') centerOnUser();
-      })
-      .catch(() => {}); // Permissions API unsupported, stay on default view
-  }
+  centerOnUser();
 }
 
 map.addControl(
@@ -320,17 +313,20 @@ calculateButton.addEventListener('click', () => {
       return;
     }
 
-    // ROUTING_SPEC.md §5: switch on the status.
+    updateDiscountUI(data && data.region);
+
     switch (data && data.status) {
       case 'ok': {
-        const st          = data.station;
-        const costDollars = (st.cost_cents / 100).toFixed(2);
+        const st      = data.station;
+        const costMin = (st.cost_cents_min / 100).toFixed(2);
+        const costMax = (st.cost_cents_max / 100).toFixed(2);
+        const costStr = costMin === costMax ? `~$${costMin}` : `~$${costMin} – $${costMax}`;
         clearMarker();
         stationMarker = new mapboxgl.Marker({ color: '#88eeff' })
           .setLngLat([st.lon, st.lat])
           .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
             `<strong style="font-size:13px;color:#111">${st.brand}, ${st.address}</strong><br>` +
-            `<span style="color:#444;font-size:12px">~$${costDollars} est. &nbsp;·&nbsp; ${st.diversion_km} km detour</span>`
+            `<span style="color:#444;font-size:12px">${costStr} est. &nbsp;·&nbsp; ${st.diversion_km} km detour</span>`
           ))
           .addTo(map);
         stationMarker.getPopup().addTo(map);
@@ -356,7 +352,7 @@ calculateButton.addEventListener('click', () => {
 
       case 'out_of_coverage':
         clearFuelStop();
-        flash(calculateButton, 'WA routes only for now');
+        flash(calculateButton, 'Only WA & VIC routes supported');
         break;
 
       default:
@@ -370,6 +366,17 @@ calculateButton.addEventListener('click', () => {
 });
 
 resetButton.addEventListener('click', clearFuelStop);
+
+function updateDiscountUI(region) {
+  const panel = document.getElementById('fuel-discounts');
+  const racLabel = document.getElementById('rac-label');
+  if (!region) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  racLabel.textContent = region === 'VIC' ? 'RACV member' : 'RAC member';
+}
 
 function flash(btn, msg) {
   const prev    = btn.textContent;

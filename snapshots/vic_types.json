@@ -1,0 +1,48 @@
+{
+  "fuelTypes": [
+    {
+      "id": "U91",
+      "name": "Unleaded 91"
+    },
+    {
+      "id": "P95",
+      "name": "Premium Unleaded 95"
+    },
+    {
+      "id": "P98",
+      "name": "Premium Unleaded 98"
+    },
+    {
+      "id": "DSL",
+      "name": "Diesel"
+    },
+    {
+      "id": "PDSL",
+      "name": "Premium Diesel"
+    },
+    {
+      "id": "E10",
+      "name": "Ethanol 10"
+    },
+    {
+      "id": "E85",
+      "name": "Ethanol 85"
+    },
+    {
+      "id": "B20",
+      "name": "Biodiesel 20"
+    },
+    {
+      "id": "LPG",
+      "name": "Liquefied Petroleum Gas"
+    },
+    {
+      "id": "LNG",
+      "name": "Liquefied Natural Gas"
+    },
+    {
+      "id": "CNG",
+      "name": "Compressed Natural Gas"
+    }
+  ]
+}
